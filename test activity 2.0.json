@@ -1,0 +1,55 @@
+{
+  "title": "Astro Bot's Cosmic Article Blast-Off!",
+  "questions": [
+    {
+      "question": "My brother wants to become ___ astronaut when he grows up.",
+      "options": ["a", "an", "the", "no article"],
+      "answer": 1
+    },
+    {
+      "question": "___ Sun gives light and heat to all the planets in our solar system.",
+      "options": ["A", "An", "The", "No article"],
+      "answer": 2
+    },
+    {
+      "question": "Astro Bot found ___ cute puppy wandering outside the space station.",
+      "options": ["a", "an", "the", "no article"],
+      "answer": 0
+    },
+    {
+      "question": "We had to wait for ___ hour before the rocket launched into orbit.",
+      "options": ["a", "an", "the", "no article"],
+      "answer": 1
+    },
+    {
+      "question": "Sarah is ___ smartest pupil in our Year 5 class.",
+      "options": ["a", "an", "the", "no article"],
+      "answer": 2
+    },
+    {
+      "question": "Astro Bot bought ___ ice cream cone from the space canteen.",
+      "options": ["a", "an", "the", "no article"],
+      "answer": 1
+    },
+    {
+      "question": "The pupils enjoy playing ___ badminton during physical education class.",
+      "options": ["a", "an", "the", "no article"],
+      "answer": 3
+    },
+    {
+      "question": "The alien commander was wearing ___ uniform with shiny star badges.",
+      "options": ["a", "an", "the", "no article"],
+      "answer": 0
+    },
+    {
+      "question": "Please turn off ___ lights before you leave the science laboratory.",
+      "options": ["a", "an", "the", "no article"],
+      "answer": 2
+    },
+    {
+      "question": "Space explorers need to drink ___ clean water every single day.",
+      "options": ["a", "an", "the", "no article"],
+      "answer": 3
+    }
+  ]
+}

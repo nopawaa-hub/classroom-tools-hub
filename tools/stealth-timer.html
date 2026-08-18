@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customizable Stealth Timer</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=JetBrains+Mono:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #090d16;
+            color: #f8fafc;
+        }
+
+        .font-mono-num {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .font-playful {
+            font-family: 'Fredoka', cursive;
+        }
+
+        /* Smooth Progress Ring */
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.3s ease, stroke 0.5s ease;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        /* 15% Warning Blink Animation */
+        @keyframes warningBlink {
+            0%, 100% {
+                opacity: 1;
+                filter: drop-shadow(0 0 25px rgba(239, 68, 68, 0.9));
+            }
+            50% {
+                opacity: 0.15;
+                filter: drop-shadow(0 0 5px rgba(239, 68, 68, 0.2));
+            }
+        }
+
+        .blink-warning {
+            animation: warningBlink 0.75s infinite ease-in-out;
+        }
+
+        /* Ambient Glow Pulse for Warning State */
+        @keyframes ambientPulse {
+            0%, 100% {
+                background-color: rgba(239, 68, 68, 0.12);
+                border-color: rgba(239, 68, 68, 0.4);
+            }
+            50% {
+                background-color: rgba(239, 68, 68, 0.02);
+                border-color: rgba(239, 68, 68, 0.15);
+            }
+        }
+
+        .ambient-warning-bg {
+            animation: ambientPulse 0.75s infinite ease-in-out;
+        }
+
+        /* Finished Flash Animation */
+        @keyframes celebratePulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 50px rgba(34, 197, 94, 0.6);
+            }
+            50% {
+                transform: scale(1.03);
+                box-shadow: 0 0 80px rgba(34, 197, 94, 0.9);
+            }
+        }
+
+        .celebrate-anim {
+            animation: celebratePulse 1.2s infinite ease-in-out;
+        }
+
+        /* Hidden Number Mask Animation */
+        .stealth-shimmer {
+            background: linear-gradient(90deg, #1e293b 0%, #334155 50%, #1e293b 100%);
+            background-size: 200% 100%;
+            animation: shimmer 3s infinite linear;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-4 sm:p-6 bg-slate-950 text-slate-100 select-none overflow-x-hidden">
+
+    <!-- Top Header -->
+    <header class="w-full max-w-4xl mx-auto flex items-center justify-between bg-slate-900/80 backdrop-blur border border-slate-800/80 px-5 py-3.5 rounded-2xl shadow-xl">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center text-xl shadow-inner">
+                <i class="fa-solid fa-hourglass-half"></i>
+            </div>
+            <div>
+                <h1 class="text-lg sm:text-xl font-bold font-playful tracking-wide text-amber-400">Stealth Focus Timer</h1>
+                <p class="text-xs text-slate-400">Classroom & Workshop Timer with Hidden Number Countdown</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-3">
+            <!-- Fullscreen Button -->
+            <button onclick="toggleFullscreen()" class="p-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 rounded-xl border border-slate-700 transition" title="Toggle Fullscreen">
+                <i id="fullscreenIcon" class="fa-solid fa-expand"></i>
+            </button>
+            <!-- Audio Sound Toggle -->
+            <button id="soundBtn" onclick="toggleSound()" class="px-3 py-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl text-xs font-semibold flex items-center gap-2 hover:bg-emerald-500/20 transition cursor-pointer">
+                <i id="soundIcon" class="fa-solid fa-volume-high"></i>
+                <span id="soundText" class="hidden sm:inline">Sound On</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="w-full max-w-4xl mx-auto my-auto py-6 flex flex-col items-center justify-center">
+
+        <!-- Status & Banner Notification -->
+        <div id="statusBadge" class="mb-6 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase bg-slate-900 border border-slate-800 text-slate-400 flex items-center gap-2 shadow-md transition-all">
+            <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+            <span id="statusText">Timer Idle • Ready to Start</span>
+        </div>
+
+        <!-- Giant Clock Container -->
+        <div id="clockCard" class="relative w-80 h-80 sm:w-96 sm:h-96 md:w-[420px] md:h-[420px] flex items-center justify-center rounded-full bg-slate-900/60 border-4 border-slate-800/80 shadow-2xl transition-all duration-500">
+            
+            <!-- Circular SVG Progress Ring -->
+            <svg class="absolute inset-0 w-full h-full p-2" viewBox="0 0 100 100">
+                <!-- Background Ring Track -->
+                <circle
+                    cx="50" cy="50" r="44"
+                    fill="none"
+                    stroke="#1e293b"
+                    stroke-width="5"
+                />
+                <!-- Active Animated Progress Ring -->
+                <circle
+                    id="progressRing"
+                    class="progress-ring-circle"
+                    cx="50" cy="50" r="44"
+                    fill="none"
+                    stroke="#f59e0b"
+                    stroke-width="5.5"
+                    stroke-dasharray="276.46"
+                    stroke-dashoffset="0"
+                    stroke-linecap="round"
+                />
+            </svg>
+
+            <!-- Inner Display Content -->
+            <div class="relative z-10 flex flex-col items-center justify-center text-center p-6 w-full h-full">
+                
+                <!-- Countdown Display (Numbers Visible when Set/Paused, Hidden when Countdown Started) -->
+                <div id="numbersContainer" class="flex flex-col items-center justify-center transition-all duration-300">
+                    <span id="timeDisplay" class="text-6xl sm:text-7xl md:text-8xl font-black font-mono-num tracking-tight text-white drop-shadow-md">
+                        05:00
+                    </span>
+                </div>
+
+                <!-- Stealth Hidden Display Mask (Shown while timer is running) -->
+                <div id="stealthMask" class="hidden flex-col items-center justify-center space-y-3 transition-all duration-300">
+                    <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-3xl sm:text-4xl shadow-lg animate-pulse">
+                        <i class="fa-solid fa-user-clock"></i>
+                    </div>
+                    <div class="space-y-1">
+                        <h2 class="text-xl sm:text-2xl font-bold font-playful text-slate-200">Timer Running</h2>
+                        <p class="text-xs text-slate-400 max-w-[200px]">Numbers hidden to keep class focused!</p>
+                    </div>
+                </div>
+
+                <!-- 15% Warning Badge Overlay -->
+                <div id="warningBadge" class="hidden mt-3 px-3 py-1 bg-red-500/20 border border-red-500/40 text-red-400 rounded-full text-xs font-bold tracking-widest uppercase animate-bounce">
+                    <i class="fa-solid fa-triangle-exclamation mr-1"></i> Time Almost Up!
+                </div>
+
+                <!-- Host Peek / Reveal Button (Allows temporary peek if needed) -->
+                <button id="peekBtn" onclick="togglePeek()" class="hidden mt-4 px-3 py-1 bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-slate-200 rounded-lg text-xs font-medium transition active:scale-95 flex items-center gap-1.5 cursor-pointer">
+                    <i id="peekIcon" class="fa-solid fa-eye"></i>
+                    <span id="peekText">Peek Time</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Controls (Start, Pause, Reset, Adjust) -->
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4 w-full max-w-md">
+            
+            <!-- Quick -1 min Button -->
+            <button onclick="adjustTime(-60)" class="w-12 h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 active:scale-95 text-slate-300 text-sm font-bold transition flex items-center justify-center shadow-lg" title="Minus 1 Minute">
+                -1m
+            </button>
+
+            <!-- Start / Pause Button -->
+            <button id="startPauseBtn" onclick="toggleTimer()" class="flex-1 min-w-[140px] h-14 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold text-lg sm:text-xl rounded-2xl shadow-xl shadow-amber-500/20 transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-amber-400/40">
+                <i id="startPauseIcon" class="fa-solid fa-play"></i>
+                <span id="startPauseText">START TIMER</span>
+            </button>
+
+            <!-- Reset Button -->
+            <button onclick="resetTimer()" class="w-14 h-14 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 active:scale-95 text-slate-300 text-lg transition flex items-center justify-center shadow-lg cursor-pointer" title="Reset Timer">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+
+            <!-- Quick +1 min Button -->
+            <button onclick="adjustTime(60)" class="w-12 h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 active:scale-95 text-slate-300 text-sm font-bold transition flex items-center justify-center shadow-lg" title="Plus 1 Minute">
+                +1m
+            </button>
+        </div>
+
+        <!-- Presets & Custom Duration Drawer -->
+        <div class="mt-8 w-full max-w-xl bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
+            
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-amber-400"></i> Duration Customizer
+                </span>
+                <span class="text-[11px] text-slate-500">Select preset or enter custom time</span>
+            </div>
+
+            <!-- Quick Preset Buttons -->
+            <div class="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                <button onclick="setPreset(1)" class="preset-btn px-2 py-2 bg-slate-800 hover:bg-amber-500/20 hover:border-amber-500/40 border border-slate-700/80 rounded-xl text-xs font-semibold text-slate-300 transition active:scale-95">1 Min</button>
+                <button onclick="setPreset(3)" class="preset-btn px-2 py-2 bg-slate-800 hover:bg-amber-500/20 hover:border-amber-500/40 border border-slate-700/80 rounded-xl text-xs font-semibold text-slate-300 transition active:scale-95">3 Min</button>
+                <button onclick="setPreset(5)" class="preset-btn px-2 py-2 bg-slate-800 hover:bg-amber-500/20 hover:border-amber-500/40 border border-slate-700/80 rounded-xl text-xs font-semibold text-slate-300 transition active:scale-95">5 Min</button>
+                <button onclick="setPreset(10)" class="preset-btn px-2 py-2 bg-slate-800 hover:bg-amber-500/20 hover:border-amber-500/40 border border-slate-700/80 rounded-xl text-xs font-semibold text-slate-300 transition active:scale-95">10 Min</button>
+                <button onclick="setPreset(15)" class="preset-btn px-2 py-2 bg-slate-800 hover:bg-amber-500/20 hover:border-amber-500/40 border border-slate-700/80 rounded-xl text-xs font-semibold text-slate-300 transition active:scale-95">15 Min</button>
+                <button onclick="setPreset(25)" class="preset-btn px-2 py-2 bg-slate-800 hover:bg-amber-500/20 hover:border-amber-500/40 border border-slate-700/80 rounded-xl text-xs font-semibold text-slate-300 transition active:scale-95">25 Min</button>
+            </div>
+
+            <!-- Custom Input Controls -->
+            <div class="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <!-- Hours -->
+                    <div class="flex flex-col">
+                        <label class="text-[10px] text-slate-500 uppercase font-bold mb-0.5">Hours</label>
+                        <input type="number" id="inputHours" min="0" max="23" value="0" onchange="applyCustomInputs()" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-center text-sm font-mono text-amber-400 font-bold focus:border-amber-500 outline-none">
+                    </div>
+                    <span class="text-slate-500 text-lg font-bold mt-3">:</span>
+                    <!-- Minutes -->
+                    <div class="flex flex-col">
+                        <label class="text-[10px] text-slate-500 uppercase font-bold mb-0.5">Mins</label>
+                        <input type="number" id="inputMinutes" min="0" max="59" value="5" onchange="applyCustomInputs()" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-center text-sm font-mono text-amber-400 font-bold focus:border-amber-500 outline-none">
+                    </div>
+                    <span class="text-slate-500 text-lg font-bold mt-3">:</span>
+                    <!-- Seconds -->
+                    <div class="flex flex-col">
+                        <label class="text-[10px] text-slate-500 uppercase font-bold mb-0.5">Secs</label>
+                        <input type="number" id="inputSeconds" min="0" max="59" value="0" onchange="applyCustomInputs()" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-center text-sm font-mono text-amber-400 font-bold focus:border-amber-500 outline-none">
+                    </div>
+                </div>
+
+                <!-- Stealth Mode Toggle Option -->
+                <div class="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800">
+                    <input type="checkbox" id="stealthToggle" checked onchange="handleStealthToggle()" class="w-4 h-4 accent-amber-500 rounded cursor-pointer">
+                    <label for="stealthToggle" class="text-xs font-medium text-slate-300 cursor-pointer">
+                        Hide numbers while running
+                    </label>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full max-w-4xl mx-auto text-center text-xs text-slate-500 py-3 border-t border-slate-800/60 mt-auto flex flex-wrap justify-between items-center gap-2">
+        <span>Classroom Stealth Timer &bull; 15% Time Warning Indicator</span>
+        <span>Numbers hidden during countdown</span>
+    </footer>
+
+    <script>
+        /* State Variables */
+        let totalDurationSeconds = 300; // Default 5 minutes
+        let remainingSeconds = 300;
+        let isRunning = false;
+        let timerInterval = null;
+        let soundEnabled = true;
+        let isPeeking = false;
+        let isStealthMode = true;
+        let warningThresholdTriggered = false;
+
+        // SVG Progress circumference for 44 radius
+        const CIRCUMFERENCE = 2 * Math.PI * 44; // ~276.46
+
+        /* DOM Elements */
+        const timeDisplay = document.getElementById('timeDisplay');
+        const numbersContainer = document.getElementById('numbersContainer');
+        const stealthMask = document.getElementById('stealthMask');
+        const progressRing = document.getElementById('progressRing');
+        const clockCard = document.getElementById('clockCard');
+        const startPauseBtn = document.getElementById('startPauseBtn');
+        const startPauseIcon = document.getElementById('startPauseIcon');
+        const startPauseText = document.getElementById('startPauseText');
+        const statusBadge = document.getElementById('statusBadge');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const warningBadge = document.getElementById('warningBadge');
+        const peekBtn = document.getElementById('peekBtn');
+        const peekIcon = document.getElementById('peekIcon');
+        const peekText = document.getElementById('peekText');
+        const inputHours = document.getElementById('inputHours');
+        const inputMinutes = document.getElementById('inputMinutes');
+        const inputSeconds = document.getElementById('inputSeconds');
+        const stealthToggle = document.getElementById('stealthToggle');
+
+        /* Initialize Page */
+        window.onload = function() {
+            updateProgressRing();
+            updateTimeDisplay();
+            updateInputFields();
+        };
+
+        /* Format Seconds into HH:MM:SS or MM:SS */
+        function formatTime(totalSec) {
+            const h = Math.floor(totalSec / 3600);
+            const m = Math.floor((totalSec % 3600) / 60);
+            const s = totalSec % 60;
+
+            const pad = (num) => String(num).padStart(2, '0');
+
+            if (h > 0) {
+                return `${pad(h)}:${pad(m)}:${pad(s)}`;
+            }
+            return `${pad(m)}:${pad(s)}`;
+        }
+
+        function updateTimeDisplay() {
+            timeDisplay.innerText = formatTime(remainingSeconds);
+        }
+
+        function updateInputFields() {
+            const h = Math.floor(totalDurationSeconds / 3600);
+            const m = Math.floor((totalDurationSeconds % 3600) / 60);
+            const s = totalDurationSeconds % 60;
+
+            inputHours.value = h;
+            inputMinutes.value = m;
+            inputSeconds.value = s;
+        }
+
+        /* Update Circular Progress Bar */
+        function updateProgressRing() {
+            if (totalDurationSeconds <= 0) return;
+            const fraction = remainingSeconds / totalDurationSeconds;
+            const offset = CIRCUMFERENCE - (fraction * CIRCUMFERENCE);
+            progressRing.style.strokeDasharray = `${CIRCUMFERENCE} ${CIRCUMFERENCE}`;
+            progressRing.style.strokeDashoffset = offset;
+
+            // Change Stroke Color based on % remaining
+            if (fraction <= 0.15) {
+                progressRing.style.stroke = '#ef4444'; // Red
+            } else if (fraction <= 0.35) {
+                progressRing.style.stroke = '#eab308'; // Yellow
+            } else {
+                progressRing.style.stroke = '#f59e0b'; // Amber
+            }
+        }
+
+        function toggleTimer() {
+            if (isRunning) {
+                pauseTimer();
+            } else {
+                if (remainingSeconds <= 0) {
+                    resetTimer();
+                }
+                startTimer();
+            }
+        }
+
+        function startTimer() {
+            if (remainingSeconds <= 0) return;
+            isRunning = true;
+
+            // UI Button State
+            startPauseBtn.className = "flex-1 min-w-[140px] h-14 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-amber-400 font-extrabold text-lg sm:text-xl rounded-2xl shadow-xl transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-amber-500/30";
+            startPauseIcon.className = "fa-solid fa-pause";
+            startPauseText.innerText = "PAUSE";
+
+            // Update Status Badge
+            statusBadge.className = "mb-6 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-2 shadow-md transition-all";
+            statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping";
+            statusText.innerText = "Countdown Active";
+
+            // Show/Hide Numbers according to Stealth setting
+            updateVisibilityState();
+
+            // Interval Tick
+            timerInterval = setInterval(tick, 1000);
+        }
+
+        function pauseTimer() {
+            isRunning = false;
+            clearInterval(timerInterval);
+
+            // UI Button State
+            startPauseBtn.className = "flex-1 min-w-[140px] h-14 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold text-lg sm:text-xl rounded-2xl shadow-xl shadow-amber-500/20 transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-amber-400/40";
+            startPauseIcon.className = "fa-solid fa-play";
+            startPauseText.innerText = "RESUME";
+
+            // Status Badge
+            statusBadge.className = "mb-6 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 flex items-center gap-2 shadow-md transition-all";
+            statusDot.className = "w-2.5 h-2.5 rounded-full bg-yellow-400";
+            statusText.innerText = "Timer Paused";
+
+            // Show numbers when paused
+            updateVisibilityState();
+        }
+
+        function tick() {
+            if (remainingSeconds > 0) {
+                remainingSeconds--;
+                updateTimeDisplay();
+                updateProgressRing();
+
+                // Check 15% Warning Threshold
+                const ratio = remainingSeconds / totalDurationSeconds;
+                if (ratio <= 0.15 && ratio > 0) {
+                    triggerWarningState();
+                } else {
+                    clearWarningState();
+                }
+
+            } else {
+                // Timer Finished
+                finishTimer();
+            }
+        }
+
+        function triggerWarningState() {
+            if (!warningThresholdTriggered) {
+                warningThresholdTriggered = true;
+                // Play warning chime once
+                if (soundEnabled) playWarningChime();
+            }
+
+            // Apply Blinking CSS Animation to clock ring & card
+            clockCard.classList.add('blink-warning', 'ambient-warning-bg');
+            warningBadge.classList.remove('hidden');
+
+            statusBadge.className = "mb-6 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase bg-red-500/20 border border-red-500/40 text-red-400 flex items-center gap-2 shadow-md transition-all animate-pulse";
+            statusDot.className = "w-2.5 h-2.5 rounded-full bg-red-500";
+            statusText.innerText = "Warning • 15% Time Remaining";
+        }
+
+        function clearWarningState() {
+            warningThresholdTriggered = false;
+            clockCard.classList.remove('blink-warning', 'ambient-warning-bg');
+            warningBadge.classList.add('hidden');
+        }
+
+        function finishTimer() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            remainingSeconds = 0;
+
+            updateTimeDisplay();
+            updateProgressRing();
+            clearWarningState();
+
+            // Celebrate finished state
+            clockCard.classList.add('celebrate-anim');
+            numbersContainer.classList.remove('hidden');
+            stealthMask.classList.add('hidden');
+            peekBtn.classList.add('hidden');
+
+            timeDisplay.innerText = "00:00";
+            timeDisplay.className = "text-6xl sm:text-7xl md:text-8xl font-black font-mono-num tracking-tight text-red-500 animate-bounce";
+
+            // Status Badge
+            statusBadge.className = "mb-6 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase bg-red-500/20 border border-red-500/40 text-red-400 flex items-center gap-2 shadow-md transition-all";
+            statusDot.className = "w-2.5 h-2.5 rounded-full bg-red-500";
+            statusText.innerText = "Time's Up!";
+
+            startPauseBtn.className = "flex-1 min-w-[140px] h-14 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-extrabold text-lg sm:text-xl rounded-2xl shadow-xl shadow-emerald-500/20 transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-emerald-400/40";
+            startPauseIcon.className = "fa-solid fa-rotate-right";
+            startPauseText.innerText = "RESTART";
+
+            if (soundEnabled) playFinishAlarm();
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            isPeeking = false;
+            warningThresholdTriggered = false;
+
+            remainingSeconds = totalDurationSeconds;
+
+            clockCard.classList.remove('blink-warning', 'ambient-warning-bg', 'celebrate-anim');
+            timeDisplay.className = "text-6xl sm:text-7xl md:text-8xl font-black font-mono-num tracking-tight text-white drop-shadow-md";
+
+            updateTimeDisplay();
+            updateProgressRing();
+            clearWarningState();
+            updateVisibilityState();
+
+            startPauseBtn.className = "flex-1 min-w-[140px] h-14 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold text-lg sm:text-xl rounded-2xl shadow-xl shadow-amber-500/20 transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-amber-400/40";
+            startPauseIcon.className = "fa-solid fa-play";
+            startPauseText.innerText = "START TIMER";
+
+            statusBadge.className = "mb-6 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase bg-slate-900 border border-slate-800 text-slate-400 flex items-center gap-2 shadow-md transition-all";
+            statusDot.className = "w-2.5 h-2.5 rounded-full bg-slate-500";
+            statusText.innerText = "Timer Reset • Ready";
+        }
+
+        function updateVisibilityState() {
+            if (isRunning && isStealthMode && !isPeeking) {
+                numbersContainer.classList.add('hidden');
+                stealthMask.classList.remove('hidden');
+                peekBtn.classList.remove('hidden');
+            } else {
+                numbersContainer.classList.remove('hidden');
+                stealthMask.classList.add('hidden');
+                if (isRunning && isStealthMode) {
+                    peekBtn.classList.remove('hidden');
+                } else {
+                    peekBtn.classList.add('hidden');
+                }
+            }
+        }
+
+        function togglePeek() {
+            isPeeking = !isPeeking;
+            if (isPeeking) {
+                peekIcon.className = "fa-solid fa-eye-slash";
+                peekText.innerText = "Hide Numbers";
+            } else {
+                peekIcon.className = "fa-solid fa-eye";
+                peekText.innerText = "Peek Time";
+            }
+            updateVisibilityState();
+        }
+
+        function handleStealthToggle() {
+            isStealthMode = stealthToggle.checked;
+            updateVisibilityState();
+        }
+
+        function setPreset(minutes) {
+            totalDurationSeconds = minutes * 60;
+            updateInputFields();
+            resetTimer();
+        }
+
+        function applyCustomInputs() {
+            let h = parseInt(inputHours.value) || 0;
+            let m = parseInt(inputMinutes.value) || 0;
+            let s = parseInt(inputSeconds.value) || 0;
+
+            if (h < 0) h = 0;
+            if (m < 0) m = 0;
+            if (s < 0) s = 0;
+
+            const total = (h * 3600) + (m * 60) + s;
+            if (total > 0) {
+                totalDurationSeconds = total;
+                resetTimer();
+            }
+        }
+
+        function adjustTime(secondsToAdd) {
+            let newTime = Math.max(10, remainingSeconds + secondsToAdd);
+            if (!isRunning) {
+                totalDurationSeconds = newTime;
+                remainingSeconds = newTime;
+                updateInputFields();
+            } else {
+                remainingSeconds = newTime;
+                if (remainingSeconds > totalDurationSeconds) {
+                    totalDurationSeconds = remainingSeconds;
+                }
+            }
+            updateTimeDisplay();
+            updateProgressRing();
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const soundBtn = document.getElementById('soundBtn');
+            const soundIcon = document.getElementById('soundIcon');
+            const soundText = document.getElementById('soundText');
+
+            if (soundEnabled) {
+                soundBtn.className = "px-3 py-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl text-xs font-semibold flex items-center gap-2 hover:bg-emerald-500/20 transition cursor-pointer";
+                soundIcon.className = "fa-solid fa-volume-high";
+                soundText.innerText = "Sound On";
+            } else {
+                soundBtn.className = "px-3 py-2 bg-slate-800 border border-slate-700 text-slate-500 rounded-xl text-xs font-semibold flex items-center gap-2 hover:bg-slate-700 transition cursor-pointer";
+                soundIcon.className = "fa-solid fa-volume-xmark";
+                soundText.innerText = "Muted";
+            }
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+                document.getElementById('fullscreenIcon').className = "fa-solid fa-compress";
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => {});
+                    document.getElementById('fullscreenIcon').className = "fa-solid fa-expand";
+                }
+            }
+        }
+
+        /* Web Audio API Sound Generator */
+        function playWarningChime() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const now = ctx.currentTime;
+                
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, now); // D5
+                osc.frequency.setValueAtTime(880, now + 0.15); // A5
+
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.6);
+            } catch (e) {
+                console.log("Audio play error", e);
+            }
+        }
+
+        function playFinishAlarm() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const now = ctx.currentTime;
+
+                // Play 3 joyful bell chimes
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + (idx * 0.18));
+
+                    gain.gain.setValueAtTime(0.4, now + (idx * 0.18));
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + (idx * 0.18) + 0.8);
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+
+                    osc.start(now + (idx * 0.18));
+                    osc.stop(now + (idx * 0.18) + 0.8);
+                });
+            } catch (e) {
+                console.log("Audio play error", e);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classroom Scoreboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+
+    <style>
+        /* ============ THEME VARIABLE SYSTEM ============ */
+        :root {
+          --bg: #0b1120;
+          --bg-2: #111827;
+          --card: rgba(15, 23, 42, 0.75);
+          --card-solid: #111827;
+          --border: rgba(255,255,255,0.08);
+          --border-strong: rgba(255,255,255,0.14);
+          --text: #f8fafc;
+          --text-soft: #94a3b8;
+          --text-dim: #64748b;
+          --accent: #d946ef;
+          --good: #10b981;
+          --bad: #f43f5e;
+          --warning: #f59e0b;
+        }
+        html[data-theme="light"] {
+          --bg: #f5f3ff;
+          --bg-2: #ede9fe;
+          --card: rgba(255,255,255,0.9);
+          --card-solid: #ffffff;
+          --border: rgba(15,23,42,0.10);
+          --border-strong: rgba(15,23,42,0.18);
+          --text: #1e1b2e;
+          --text-soft: #57534e;
+          --text-dim: #94a3b8;
+          --accent: #a21caf;
+          --good: #059669;
+          --bad: #e11d48;
+          --warning: #d97706;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(circle at 12% 12%, color-mix(in srgb, var(--accent) 18%, transparent) 0%, transparent 42%),
+                radial-gradient(circle at 88% 88%, color-mix(in srgb, var(--accent) 12%, transparent) 0%, transparent 42%);
+            background-attachment: fixed;
+            color: var(--text);
+            transition: background-color 0.5s ease, color 0.4s ease;
+        }
+        body::before {
+            content: '';
+            position: fixed; inset: 0;
+            background-image:
+                linear-gradient(color-mix(in srgb, var(--text) 4%, transparent) 1px, transparent 1px),
+                linear-gradient(90deg, color-mix(in srgb, var(--text) 4%, transparent) 1px, transparent 1px);
+            background-size: 32px 32px;
+            pointer-events: none; z-index: 0;
+        }
+
+        .font-display { font-family: 'Fredoka', cursive; }
+        .font-mono-num { font-family: 'JetBrains Mono', monospace; }
+
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+        }
+
+        /* Team card */
+        .team-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            transition: transform 0.6s cubic-bezier(0.22,1,0.36,1), box-shadow 0.4s ease, opacity 0.4s ease, filter 0.4s ease;
+        }
+        .team-card.flash-glow {
+            box-shadow: 0 0 0 3px var(--team-color, var(--accent)), 0 0 40px color-mix(in srgb, var(--team-color, var(--accent)) 60%, transparent);
+        }
+
+        /* FLIP positions handled inline by JS; this just animates movement */
+        .team-card.moving { transition: transform 0.55s cubic-bezier(0.22,1,0.36,1); }
+
+        /* score count-up + pulse */
+        .score-val { transition: transform 0.25s ease; }
+        .score-val.pulse { animation: scorePulse 0.5s cubic-bezier(0.175,0.885,0.32,1.275); }
+        @keyframes scorePulse {
+            0% { transform: scale(1); }
+            45% { transform: scale(1.32); }
+            100% { transform: scale(1); }
+        }
+
+        /* floating delta */
+        .float-delta {
+            position: absolute;
+            pointer-events: none;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            animation: floatUp 1.2s ease-out forwards;
+            z-index: 30;
+        }
+        @keyframes floatUp {
+            0%   { opacity: 0; transform: translateY(0) scale(0.7); }
+            20%  { opacity: 1; transform: translateY(-14px) scale(1.2); }
+            100% { opacity: 0; transform: translateY(-80px) scale(1); }
+        }
+
+        /* rank badge pop */
+        @keyframes rankPop {
+            0% { transform: scale(0.5) rotate(-30deg); opacity: 0; }
+            60% { transform: scale(1.2) rotate(8deg); }
+            100% { transform: scale(1) rotate(0); opacity: 1; }
+        }
+        .rank-badge { animation: rankPop 0.5s cubic-bezier(0.175,0.885,0.32,1.275) both; }
+
+        /* glass buttons */
+        .btn {
+            background: var(--card);
+            border: 1px solid var(--border-strong);
+            color: var(--text);
+            transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+            cursor: pointer;
+        }
+        .btn:hover { transform: translateY(-2px); }
+        .btn:active { transform: translateY(0) scale(0.96); }
+
+        .btn-points {
+            font-weight: 800;
+            border-radius: 1rem;
+            padding: 0.6rem 0;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border: 1px solid var(--border-strong);
+            user-select: none;
+        }
+        .btn-points:hover { transform: translateY(-2px) scale(1.02); }
+        .btn-points:active { transform: translateY(0) scale(0.95); }
+        .btn-plus { background: color-mix(in srgb, var(--good) 18%, var(--card-solid)); color: var(--good); }
+        .btn-plus:hover { background: var(--good); color: white; box-shadow: 0 8px 22px -8px var(--good); }
+        .btn-minus { background: color-mix(in srgb, var(--bad) 18%, var(--card-solid)); color: var(--bad); }
+        .btn-minus:hover { background: var(--bad); color: white; box-shadow: 0 8px 22px -8px var(--bad); }
+        .btn-custom { background: color-mix(in srgb, var(--accent) 22%, var(--card-solid)); color: var(--accent); }
+        .btn-custom:hover { background: var(--accent); color: white; box-shadow: 0 8px 22px -8px var(--accent); }
+
+        /* progress bar */
+        .progress-track {
+            background: color-mix(in srgb, var(--text) 10%, transparent);
+            border-radius: 999px;
+            overflow: hidden;
+            height: 8px;
+        }
+        .progress-fill {
+            height: 100%;
+            transition: width 0.55s cubic-bezier(0.22,1,0.36,1), background 0.4s ease;
+            border-radius: 999px;
+        }
+
+        /* dialog / overlay */
+        .overlay-bg {
+            background: color-mix(in srgb, var(--bg) 75%, transparent);
+            backdrop-filter: blur(8px);
+        }
+        @keyframes modalPop {
+            0% { opacity: 0; transform: scale(0.9) translateY(20px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-pop { animation: modalPop 0.32s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
+
+        /* round chip */
+        .round-chip {
+            background: var(--card);
+            border: 1px solid var(--border-strong);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .round-chip.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+            box-shadow: 0 6px 18px -6px var(--accent);
+        }
+
+        /* shield / double indicators */
+        .badge-state {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* event banner */
+        @keyframes slideEvent {
+            0% { opacity: 0; transform: translateY(-30px) scale(0.92); }
+            12% { opacity: 1; transform: translateY(0) scale(1); }
+            85% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-20px) scale(0.95); }
+        }
+        .event-banner { animation: slideEvent 3.6s ease-in-out forwards; }
+
+        /* winner podium */
+        @keyframes podiumDrop {
+            0% { opacity: 0; transform: translateY(-40px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .podium-step { animation: podiumDrop 0.6s cubic-bezier(0.22,1,0.36,1) both; }
+
+        /* confetti canvas */
+        .confetti-canvas { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+
+        /* range slider (setup) */
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none; height: 8px; background: var(--border-strong); border-radius: 999px; outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 26px; height: 26px; border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer; border: 3px solid var(--bg);
+            box-shadow: 0 0 0 2px var(--accent);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 26px; height: 26px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 3px solid var(--bg); box-shadow: 0 0 0 2px var(--accent);
+        }
+
+        /* form controls */
+        input[type="text"], textarea, select, input[type="number"] {
+            background: var(--card-solid); border: 1px solid var(--border-strong); color: var(--text);
+            border-radius: 0.85rem; padding: 0.6rem 0.85rem; outline: none; transition: border-color 0.2s ease;
+            width: 100%;
+        }
+        input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+    </style>
+</head>
+<body class="min-h-screen relative overflow-x-hidden select-none">
+
+    <div class="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+
+        <!-- ============ HEADER ============ -->
+        <header class="panel rounded-[1.75rem] px-4 sm:px-6 py-3.5 sm:py-4 flex flex-wrap items-center justify-between gap-3 shadow-[0_12px_40px_-18px_rgba(0,0,0,0.4)]">
+            <div class="flex items-center gap-3 sm:gap-4">
+                <div class="relative w-14 h-14 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl shadow-inner ring-2 ring-white/10"
+                     style="background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 30%, transparent), color-mix(in srgb, var(--accent) 12%, transparent));">
+                    <i class="fa-solid fa-trophy" style="color: var(--accent);"></i>
+                </div>
+                <div>
+                    <h1 class="font-display text-2xl sm:text-3xl font-bold leading-tight tracking-tight" style="color: var(--text);">
+                        Classroom Scoreboard
+                    </h1>
+                    <p class="text-xs sm:text-sm" style="color: var(--text-soft);">
+                        Real-time team points, rounds &amp; live events.
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 sm:gap-2.5">
+                <!-- Sound -->
+                <button id="soundBtn" onclick="toggleSound()" class="btn px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2" title="Toggle sound">
+                    <i id="soundIcon" class="fa-solid fa-volume-high" style="color: var(--good);"></i>
+                    <span id="soundText" class="hidden sm:inline">Sound</span>
+                </button>
+                <!-- Theme cycle -->
+                <button onclick="cycleTheme()" class="btn px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2" title="Cycle theme (auto/dark/light)">
+                    <i id="themeIcon" class="fa-solid fa-circle-half-stroke"></i>
+                    <span id="themeLabel" class="hidden sm:inline">Auto</span>
+                </button>
+                <!-- End game -->
+                <button onclick="endGame()" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition active:scale-95" style="background: var(--accent); color: white; box-shadow: 0 6px 18px -6px var(--accent);">
+                    <i class="fa-solid fa-flag-checkered"></i>
+                    <span>End Game</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- ============ SETUP SCREEN ============ -->
+        <section id="setupScreen" class="panel rounded-[1.75rem] p-5 sm:p-8 mt-5 max-w-3xl mx-auto">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-3 shadow-inner" style="background: color-mix(in srgb, var(--accent) 18%, transparent);">
+                    <i class="fa-solid fa-people-group text-3xl" style="color: var(--accent);"></i>
+                </div>
+                <h2 class="font-display text-2xl sm:text-3xl font-bold" style="color: var(--text);">Set up your class</h2>
+                <p class="text-sm mt-1" style="color: var(--text-soft);">Choose the number of teams and give each a name.</p>
+            </div>
+
+            <!-- count selector -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-xs font-bold uppercase tracking-wider" style="color: var(--text-soft);"><i class="fa-solid fa-users mr-1.5"></i>How many teams?</label>
+                    <span id="teamCountValue" class="font-mono-num font-bold text-2xl" style="color: var(--accent);">4</span>
+                </div>
+                <input type="range" id="teamCountRange" min="2" max="8" value="4" oninput="onTeamCountChange(this.value)" class="w-full">
+                <div class="flex justify-between text-[10px] mt-1 font-bold" style="color: var(--text-dim);">
+                    <span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span>
+                </div>
+            </div>
+
+            <!-- team config cards -->
+            <div id="setupTeams" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+
+            <button onclick="startGame()" class="mt-7 w-full py-3.5 rounded-2xl font-bold text-base sm:text-lg flex items-center justify-center gap-2 transition active:scale-95"
+                    style="background: var(--accent); color: white; box-shadow: 0 8px 24px -8px var(--accent);">
+                <i class="fa-solid fa-play"></i>
+                Start Game
+            </button>
+            <p id="restoreHint" class="hidden text-center text-[11px] mt-3" style="color: var(--text-dim);"></p>
+        </section>
+
+        <!-- ============ GAME SCREEN ============ -->
+        <section id="gameScreen" class="hidden mt-5">
+            <!-- rounds bar -->
+            <div class="panel rounded-2xl px-3 py-2.5 mb-4 flex flex-wrap items-center gap-2 overflow-x-auto">
+                <span class="text-xs font-bold uppercase tracking-wider px-1" style="color: var(--text-soft);">
+                    <i class="fa-solid fa-flag mr-1"></i>Rounds:
+                </span>
+                <div id="roundsChips" class="flex items-center gap-2 flex-wrap"></div>
+                <button onclick="addRound()" class="btn px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 ml-auto" title="Add round">
+                    <i class="fa-solid fa-plus"></i><span class="hidden sm:inline">Round</span>
+                </button>
+            </div>
+
+            <!-- toolbar -->
+            <div class="panel rounded-2xl px-3 py-2.5 mb-5 flex flex-wrap items-center gap-2">
+                <button onclick="addTeam()" class="btn px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-user-plus"></i><span class="hidden sm:inline">Add Team</span></button>
+                <button onclick="spinEvent()" class="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95" style="background: linear-gradient(90deg, var(--accent), var(--warning)); color:white;">
+                    <i class="fa-solid fa-dice"></i><span class="hidden sm:inline">Spin Event</span>
+                </button>
+                <button onclick="resetScores()" class="btn px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-rotate-right"></i><span class="hidden sm:inline">Reset</span></button>
+                <button onclick="undoLast()" id="undoBtn" class="btn px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-arrow-rotate-left"></i><span class="hidden sm:inline">Undo</span></button>
+                <button onclick="newRound()" class="btn px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-forward"></i><span class="hidden sm:inline">New Round</span></button>
+                <button onclick="newSession()" class="btn px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 ml-auto"><i class="fa-solid fa-power-off"></i><span class="hidden sm:inline">New Session</span></button>
+            </div>
+
+            <!-- teams grid -->
+            <div id="teamsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+
+            <!-- round log -->
+            <div class="panel rounded-2xl px-4 py-3 mt-5">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text-soft);">
+                        <i class="fa-solid fa-list-ol mr-1"></i><span id="logRoundName">Round 1</span> — Activity Log
+                    </span>
+                    <span id="logCount" class="text-[11px]" style="color: var(--text-dim);">0 actions</span>
+                </div>
+                <div id="actionLog" class="flex flex-col gap-1.5 max-h-40 overflow-y-auto text-sm">
+                    <p class="text-xs italic" style="color: var(--text-dim);">No actions in this round yet.</p>
+                </div>
+            </div>
+        </section>
+
+        <footer class="text-center text-xs mt-8 pb-4" style="color: var(--text-dim);">
+            Classroom Scoreboard &bull; Tap a points button to score instantly.
+        </footer>
+    </div>
+
+    <!-- ============ EVENT BANNER ============ -->
+    <div id="eventBanner" class="hidden fixed top-6 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl shadow-2xl text-center"
+         style="background: var(--card-solid); border: 2px solid var(--accent);">
+    </div>
+
+    <!-- ============ GENERIC MODAL ============ -->
+    <div id="modalRoot"></div>
+
+    <!-- ============ WINNER SCREEN ============ -->
+    <div id="winnerScreen" class="hidden fixed inset-0 z-50 overlay-bg items-center justify-center p-4">
+        <div class="relative max-w-2xl w-full p-6 sm:p-10 rounded-[2rem] shadow-2xl animate-pop text-center" style="background: var(--card-solid); border: 1px solid var(--border-strong);">
+            <canvas id="winnerConfetti" class="confetti-canvas"></canvas>
+            <div class="relative z-10">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-3xl mb-3 shadow-xl" style="background: linear-gradient(135deg, var(--warning), var(--accent));">
+                    <i class="fa-solid fa-trophy text-4xl text-white"></i>
+                </div>
+                <h2 class="font-display text-3xl sm:text-4xl font-bold" style="color: var(--text);">Game Over!</h2>
+                <p class="text-sm mb-6" style="color: var(--text-soft);">Here are the final standings.</p>
+
+                <!-- podium -->
+                <div id="podiumArea" class="flex items-end justify-center gap-3 mb-7 h-44"></div>
+
+                <!-- full standings -->
+                <div id="finalStandings" class="text-left mb-7"></div>
+
+                <div class="flex flex-wrap justify-center gap-3">
+                    <button onclick="rematch()" class="px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2" style="background: var(--accent); color: white;">
+                        <i class="fa-solid fa-rotate"></i> Rematch (keep teams)
+                    </button>
+                    <button onclick="newSession(true)" class="btn px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-power-off"></i> New Session
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+    /* =========================================================================
+       CLASSROOM SCOREBOARD
+       ========================================================================= */
+    const STORAGE_KEY = 'classroom_scoreboard_v1';
+
+    const TEAM_COLORS = ['#f59e0b','#3b82f6','#10b981','#ec4899','#8b5cf6','#f97316','#06b6d4','#ef4444'];
+    const EMOJI_PICKS = ['🐯','🦁','🦅','🦈','🐉','🐺','🚀','⭐','🔥','💎','🎯','🏆','⚡','🌟','🐻','🦊','🦉','🦓','🐢','🐙','🦄','🐼'];
+    const EMOJI_SET = ['🐯','🦁','🦅','🦈','🐉','🐺','🚀','⭐','🔥','💎','🎯','🏆','⚡','🌟','🐻','🦊','🦉','🦓','🐢','🐙','🦄','🐼','🐸','🐝'];
+    const ROUND_NAMES = ['Vocabulary','Grammar','Speaking','Reading','Listening','Writing','Spelling','Quiz'];
+
+    const EVENTS = [
+        { id:'double', label:'⚡ Double Points', desc:'Next +points for the chosen team is doubled!', sound:'sparkle' },
+        { id:'bonus',  label:'🎁 Bonus +5',     desc:'A random team instantly gets +5 points!', sound:'sparkle' },
+        { id:'steal',  label:'🥷 Steal 5',      desc:'Leader loses 5, a random other team gains 5!', sound:'sparkle' },
+        { id:'shield', label:'🛡️ Shield',       desc:'A random team gains a shield — blocks the next negative!', sound:'sparkle' },
+        { id:'mystery',label:'❓ Mystery Bonus',  desc:'A random team gets 1–10 bonus points!', sound:'sparkle' },
+    ];
+
+    let state = {
+        teams: [],
+        rounds: [{ id: rid(), name: 'Vocabulary' }],
+        currentRoundId: null,
+        actionLog: [],
+        soundOn: true,
+        theme: 'auto',
+    };
+    state.currentRoundId = state.rounds[0].id;
+
+    /* --- helpers --- */
+    function rid(){ return 'r_' + Math.random().toString(36).slice(2,9); }
+    function $(id){ return document.getElementById(id); }
+    function save(){ try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){} }
+    function load(){
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                const s = JSON.parse(raw);
+                state = Object.assign(state, s);
+                return true;
+            }
+        } catch(e){}
+        return false;
+    }
+    function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+
+    /* --- theme --- */
+    function applyTheme(){
+        let effective = state.theme;
+        if (state.theme === 'auto') {
+            effective = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', effective);
+        const labels = { auto:'Auto', dark:'Dark', light:'Light' };
+        const icons  = { auto:'fa-circle-half-stroke', dark:'fa-moon', light:'fa-sun' };
+        $('themeLabel').textContent = labels[state.theme];
+        $('themeIcon').className = 'fa-solid ' + icons[state.theme];
+    }
+    function cycleTheme(){
+        const order = ['auto','dark','light'];
+        const idx = order.indexOf(state.theme);
+        state.theme = order[(idx+1) % order.length];
+        save(); applyTheme();
+    }
+    // re-evaluate if in auto and system changes
+    if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (state.theme === 'auto') applyTheme(); });
+    }
+
+    /* --- sound --- */
+    let audioCtx;
+    function tone(freq, when, dur, type='sine', vol=0.25){
+        try {
+            if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + when);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime + when);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + when + dur);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(audioCtx.currentTime + when);
+            osc.stop(audioCtx.currentTime + when + dur);
+        } catch(e){}
+    }
+    function playSound(kind){
+        if (!state.soundOn) return;
+        if (kind === 'plus') { tone(523.25, 0, 0.18, 'sine', 0.25); tone(659.25, 0.08, 0.22, 'sine', 0.25); }
+        else if (kind === 'minus') { tone(440, 0, 0.2, 'triangle', 0.22); tone(330, 0.1, 0.25, 'triangle', 0.22); }
+        else if (kind === 'sparkle') { tone(880,0,0.1,'triangle',0.2); tone(1175,0.08,0.12,'triangle',0.2); tone(1568,0.16,0.15,'triangle',0.2); }
+        else if (kind === 'winner') { [523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(f,i*0.16,0.55,'sine',0.32)); }
+    }
+    function toggleSound(){
+        state.soundOn = !state.soundOn;
+        save();
+        const icon = $('soundIcon'), label = $('soundText');
+        if (state.soundOn) { icon.className='fa-solid fa-volume-high'; icon.style.color='var(--good)'; label.textContent='Sound'; }
+        else { icon.className='fa-solid fa-volume-xmark'; icon.style.color='var(--text-dim)'; label.textContent='Muted'; }
+    }
+
+    /* =========================================================================
+       SETUP SCREEN
+       ========================================================================= */
+    let setupTeamCount = 4;
+    let setupTeamsDraft = []; // [{name, emoji, students}]
+
+    function initSetupDraft(n, preserve=true){
+        const prev = setupTeamsDraft.slice();
+        setupTeamsDraft = [];
+        for (let i = 0; i < n; i++) {
+            setupTeamsDraft.push(prev[i] && preserve ? prev[i] : {
+                name: `Team ${EMOJI_PICKS[i] ? '' : ''}${['Tiger','Lion','Eagle','Shark','Dragon','Wolf','Falcon','Bear'][i] || (i+1)}`,
+                emoji: EMOJI_SET[i % EMOJI_SET.length],
+                students: ''
+            });
+        }
+        renderSetupTeams();
+    }
+    function onTeamCountChange(v){
+        setupTeamCount = Number(v);
+        $('teamCountValue').textContent = v;
+        initSetupDraft(setupTeamCount);
+    }
+    function renderSetupTeams(){
+        const root = $('setupTeams');
+        root.innerHTML = '';
+        setupTeamsDraft.forEach((t, i) => {
+            const color = TEAM_COLORS[i % TEAM_COLORS.length];
+            const card = document.createElement('div');
+            card.className = 'rounded-2xl p-3.5';
+            card.style.cssText = `background: color-mix(in srgb, ${color} 10%, var(--card-solid)); border: 1px solid color-mix(in srgb, ${color} 35%, transparent);`;
+            card.innerHTML = `
+                <div class="flex items-center gap-2 mb-2.5">
+                    <button onclick="pickEmoji(${i})" class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" style="background: ${color}; color:white;" title="Change icon">${t.emoji}</button>
+                    <input type="text" value="${escapeHtml(t.name)}" oninput="setupTeamsDraft[${i}].name = this.value" placeholder="Team name" class="flex-1 font-semibold">
+                </div>
+                <textarea rows="2" placeholder="Optional student names (comma or line separated)" oninput="setupTeamsDraft[${i}].students = this.value" class="text-sm resize-none">${escapeHtml(t.students)}</textarea>
+            `;
+            root.appendChild(card);
+        });
+    }
+    function pickEmoji(idx){
+        openModal({
+            title:'Pick a team icon',
+            body:`<div class="grid grid-cols-6 sm:grid-cols-8 gap-2">${EMOJI_SET.map(e=>`<button onclick="setSetupEmoji(${idx}, '${e}')" class="aspect-square rounded-xl text-2xl hover:scale-110 transition" style="background:var(--card-solid); border:1px solid var(--border-strong);">${e}</button>`).join('')}</div>`,
+            actions:`<button onclick="closeModal()" class="btn px-4 py-2 rounded-xl text-sm font-bold">Done</button>`
+        });
+    }
+    function setSetupEmoji(idx, e){ setupTeamsDraft[idx].emoji = e; renderSetupTeams(); closeModal(); }
+
+    function startGame(){
+        // build teams from draft
+        state.teams = setupTeamsDraft.map((t,i) => ({
+            id: 't_'+i+'_'+Math.random().toString(36).slice(2,7),
+            name: t.name.trim() || `Team ${i+1}`,
+            emoji: t.emoji,
+            color: TEAM_COLORS[i % TEAM_COLORS.length],
+            students: t.students.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean),
+            score: 0,
+            shield: false,
+            doubleNext: false
+        }));
+        if (state.teams.length < 2) { state.teams = []; alert('Please set up at least 2 teams.'); return; }
+        state.rounds = [{ id: rid(), name: 'Vocabulary' }];
+        state.currentRoundId = state.rounds[0].id;
+        state.actionLog = [];
+        save();
+        showGame();
+    }
+
+    function showSetup(){
+        $('setupScreen').classList.remove('hidden');
+        $('gameScreen').classList.add('hidden');
+        // restore hint
+        if (state.teams.length) {
+            $('restoreHint').classList.remove('hidden');
+            $('restoreHint').innerHTML = `<i class="fa-solid fa-clock-rotate-left mr-1"></i>A previous session with ${state.teams.length} teams exists. <button onclick="showGame()" class="underline font-bold" style="color:var(--accent);">Resume it</button> instead.`;
+        }
+    }
+    function showGame(){
+        $('setupScreen').classList.add('hidden');
+        $('gameScreen').classList.remove('hidden');
+        renderAll();
+    }
+
+    /* =========================================================================
+       GAME RENDER
+       ========================================================================= */
+    function renderAll(){
+        renderRounds();
+        renderTeams();
+        renderLog();
+    }
+
+    function renderRounds(){
+        const root = $('roundsChips');
+        root.innerHTML = '';
+        state.rounds.forEach((r, i) => {
+            const active = r.id === state.currentRoundId;
+            const chip = document.createElement('button');
+            chip.className = 'round-chip px-3 py-1.5 rounded-xl text-xs font-bold' + (active ? ' active' : '');
+            chip.innerHTML = `<i class="fa-solid fa-flag-checkered mr-1"></i>R${i+1}: ${escapeHtml(r.name)}`;
+            chip.onclick = () => { state.currentRoundId = r.id; save(); renderAll(); };
+            root.appendChild(chip);
+        });
+    }
+
+    function rankedTeams(){
+        return state.teams.slice().sort((a,b)=> b.score - a.score || a.name.localeCompare(b.name));
+    }
+
+    function renderTeams(){
+        const root = $('teamsGrid');
+        const ranked = rankedTeams();
+        const leaderScore = Math.max(0, ...state.teams.map(t=>t.score));
+
+        // FLIP: record old positions
+        const oldRects = new Map();
+        Array.from(root.children).forEach(el => oldRects.set(el.dataset.teamId, el.getBoundingClientRect()));
+
+        root.innerHTML = '';
+        const rankMedals = ['🥇','🥈','🥉'];
+
+        ranked.forEach((team, idx) => {
+            const card = document.createElement('article');
+            card.className = 'team-card rounded-[1.5rem] p-4 sm:p-5 relative overflow-hidden';
+            card.dataset.teamId = team.id;
+            card.style.setProperty('--team-color', team.color);
+            // colored top accent
+            const pct = leaderScore > 0 ? (team.score / leaderScore) * 100 : 0;
+            const stateBadges = [];
+            if (team.shield) stateBadges.push(`<span class="badge-state" style="background:color-mix(in srgb, var(--good) 22%, transparent); color:var(--good);"><i class="fa-solid fa-shield-halved mr-0.5"></i>Shield</span>`);
+            if (team.doubleNext) stateBadges.push(`<span class="badge-state" style="background:color-mix(in srgb, var(--warning) 22%, transparent); color:var(--warning);"><i class="fa-solid fa-bolt mr-0.5"></i>2× Next</span>`);
+
+            card.innerHTML = `
+                <div style="position:absolute; top:0; left:0; right:0; height:5px; background:${team.color};"></div>
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl shrink-0 shadow-inner" style="background:color-mix(in srgb, ${team.color} 22%, var(--card-solid)); border:1px solid color-mix(in srgb, ${team.color} 45%, transparent);">
+                            ${team.emoji}
+                        </div>
+                        <div class="min-w-0">
+                            <div class="font-bold text-base sm:text-lg leading-tight truncate" style="color:var(--text);">${escapeHtml(team.name)}</div>
+                            <div class="text-[11px]" style="color:var(--text-soft);">
+                                ${team.students.length ? `${team.students.length} students` : 'No students added'}
+                            </div>
+                            <div class="flex gap-1 mt-1 flex-wrap">${stateBadges.join('')}</div>
+                        </div>
+                    </div>
+                    <span class="rank-badge text-xl sm:text-2xl shrink-0">${rankMedals[idx] || '#' + (idx+1)}</span>
+                </div>
+
+                <div class="text-center my-2">
+                    <span class="score-val font-mono-num font-extrabold text-5xl sm:text-6xl" data-score="${team.id}" style="color:var(--text);">${team.score}</span>
+                    <span class="text-sm font-bold ml-1" style="color:var(--text-soft);">pts</span>
+                </div>
+
+                <div class="progress-track my-3">
+                    <div class="progress-fill" style="width:${pct}%; background: linear-gradient(90deg, ${team.color}, color-mix(in srgb, ${team.color} 60%, white));"></div>
+                </div>
+
+                <div class="grid grid-cols-5 gap-1.5">
+                    <button class="btn-points btn-plus" onclick="addPoints('${team.id}', 1)">+1</button>
+                    <button class="btn-points btn-plus" onclick="addPoints('${team.id}', 5)">+5</button>
+                    <button class="btn-points btn-plus" onclick="addPoints('${team.id}', 10)">+10</button>
+                    <button class="btn-points btn-minus" onclick="addPoints('${team.id}', -1)">−1</button>
+                    <button class="btn-points btn-custom" onclick="customPoints('${team.id}')" title="Custom"><i class="fa-solid fa-pen"></i></button>
+                </div>
+
+                <div class="flex items-center justify-center gap-3 mt-3 pt-2.5 border-t" style="border-color: var(--border);">
+                    <button onclick="renameTeam('${team.id}')" class="text-[11px] font-bold flex items-center gap-1 transition" style="color:var(--text-soft);" title="Rename">
+                        <i class="fa-solid fa-pen-to-square"></i><span class="hidden sm:inline">Rename</span>
+                    </button>
+                    <button onclick="manageStudents('${team.id}')" class="text-[11px] font-bold flex items-center gap-1 transition" style="color:var(--text-soft);" title="Students">
+                        <i class="fa-solid fa-users"></i><span class="hidden sm:inline">Students</span>
+                    </button>
+                    <button onclick="pickTeamEmoji('${team.id}')" class="text-[11px] font-bold flex items-center gap-1 transition" style="color:var(--text-soft);" title="Icon">
+                        <i class="fa-solid fa-face-smile"></i><span class="hidden sm:inline">Icon</span>
+                    </button>
+                    <button onclick="removeTeam('${team.id}')" class="text-[11px] font-bold flex items-center gap-1 transition" style="color:var(--bad);" title="Remove">
+                        <i class="fa-solid fa-trash"></i><span class="hidden sm:inline">Remove</span>
+                    </button>
+                </div>
+            `;
+            root.appendChild(card);
+        });
+
+        // FLIP: animate cards to new positions if reordered
+        requestAnimationFrame(() => {
+            Array.from(root.children).forEach(el => {
+                const old = oldRects.get(el.dataset.teamId);
+                if (!old) return;
+                const nr = el.getBoundingClientRect();
+                const dx = old.left - nr.left;
+                const dy = old.top - nr.top;
+                if (dx === 0 && dy === 0) return;
+                el.classList.add('moving');
+                el.style.transform = `translate(${dx}px, ${dy}px)`;
+                el.style.transition = 'none';
+                requestAnimationFrame(() => {
+                    el.style.transition = '';
+                    el.style.transform = '';
+                });
+            });
+        });
+    }
+
+    function renderLog(){
+        const round = state.rounds.find(r => r.id === state.currentRoundId);
+        const name = round ? round.name : '';
+        const idx = state.rounds.findIndex(r => r.id === state.currentRoundId);
+        $('logRoundName').textContent = `Round ${idx+1}: ${name}`;
+        const items = state.actionLog.filter(a => a.roundId === state.currentRoundId).slice(-30).reverse();
+        $('logCount').textContent = `${items.length} action${items.length===1?'':'s'}`;
+        const root = $('actionLog');
+        if (items.length === 0) {
+            root.innerHTML = `<p class="text-xs italic" style="color: var(--text-dim);">No actions in this round yet.</p>`;
+            return;
+        }
+        root.innerHTML = items.map(a => {
+            const team = state.teams.find(t => t.id === a.teamId);
+            const sign = a.delta > 0 ? '+' : '';
+            const color = a.delta > 0 ? 'var(--good)' : 'var(--bad)';
+            return `<div class="flex items-center justify-between gap-2 py-1 text-sm">
+                <span style="color:var(--text);"><span class="text-base mr-1">${team ? team.emoji : ''}</span>${team ? escapeHtml(team.name) : 'Team'} <span class="text-xs" style="color:var(--text-dim);">— ${escapeHtml(a.reason)}</span></span>
+                <span class="font-mono-num font-bold" style="color:${color};">${sign}${a.delta}</span>
+            </div>`;
+        }).join('');
+    }
+
+    /* =========================================================================
+       SCORING ACTIONS
+       ========================================================================= */
+    function addPoints(teamId, delta, reason){
+        const team = state.teams.find(t => t.id === teamId);
+        if (!team) return;
+        let actual = delta;
+        // double-next: only on positive
+        if (delta > 0 && team.doubleNext) {
+            actual = delta * 2;
+            team.doubleNext = false;
+            if (reason) reason += ' (doubled!)';
+        }
+        // shield: blocks one negative
+        if (delta < 0 && team.shield) {
+            team.shield = false;
+            showEventBanner('🛡️ Shield absorbed the blow!', team.color);
+            renderTeams();
+            save();
+            return;
+        }
+        team.score = Math.max(0, team.score + actual);
+        logAction(teamId, actual, reason || 'manual');
+        animateScore(teamId, actual);
+        playSound(actual > 0 ? 'plus' : 'minus');
+        save();
+        renderTeams();
+        renderLog();
+    }
+
+    function customPoints(teamId){
+        const team = state.teams.find(t=>t.id===teamId);
+        openModal({
+            title:`Custom points — ${team ? team.emoji + ' ' + team.name : ''}`,
+            body:`<label class="text-xs font-bold uppercase tracking-wider block mb-2" style="color:var(--text-soft);">Enter any point value (e.g. 25 or -3)</label>
+                  <input type="number" id="customPtsInput" placeholder="e.g. 25" autofocus>
+                  <div class="grid grid-cols-4 gap-2 mt-3">
+                    ${[3,5,15,20].map(n=>`<button onclick="document.getElementById('customPtsInput').value=${n}" class="btn py-2 rounded-xl text-sm font-bold">+${n}</button>`).join('')}
+                    ${[-3,-5].map(n=>`<button onclick="document.getElementById('customPtsInput').value=${n}" class="btn py-2 rounded-xl text-sm font-bold" style="color:var(--bad);">${n}</button>`).join('')}
+                  </div>`,
+            actions:`<button onclick="closeModal()" class="btn px-4 py-2 rounded-xl text-sm font-bold">Cancel</button>
+                     <button onclick="applyCustom('${teamId}')" class="px-4 py-2 rounded-xl text-sm font-bold" style="background:var(--accent); color:white;">Apply</button>`
+        });
+        setTimeout(()=>$('customPtsInput').focus(), 100);
+    }
+    function applyCustom(teamId){
+        const val = parseInt($('customPtsInput').value);
+        if (isNaN(val)) { closeModal(); return; }
+        closeModal();
+        addPoints(teamId, val, 'custom');
+    }
+
+    function logAction(teamId, delta, reason){
+        state.actionLog.push({
+            teamId, delta, reason,
+            ts: Date.now(),
+            roundId: state.currentRoundId
+        });
+    }
+
+    function animateScore(teamId, delta){
+        // animate from old to new via pulse
+        const el = document.querySelector(`[data-score="${teamId}"]`);
+        if (!el) return;
+        el.classList.add('pulse');
+        setTimeout(() => el.classList.remove('pulse'), 500);
+        // floating delta
+        const card = document.querySelector(`[data-team-id="${teamId}"]`);
+        if (card) {
+            const cardRect = card.getBoundingClientRect();
+            const floater = document.createElement('div');
+            floater.className = 'float-delta text-4xl';
+            floater.textContent = (delta > 0 ? '+' : '') + delta;
+            floater.style.color = delta > 0 ? 'var(--good)' : 'var(--bad)';
+            floater.style.left = '50%';
+            floater.style.top = '30%';
+            floater.style.transform = 'translateX(-50%)';
+            card.appendChild(floater);
+            setTimeout(()=>floater.remove(), 1300);
+            // flash glow
+            card.classList.add('flash-glow');
+            setTimeout(()=>card.classList.remove('flash-glow'), 900);
+        }
+    }
+
+    function undoLast(){
+        const log = state.actionLog;
+        if (log.length === 0) { showToast('Nothing to undo.'); return; }
+        const last = log.pop();
+        const team = state.teams.find(t => t.id === last.teamId);
+        if (team) {
+            team.score = Math.max(0, team.score - last.delta);
+        }
+        save();
+        renderTeams();
+        renderLog();
+        showToast('Undid last action.');
+    }
+    function resetScores(){
+        openModal({
+            title:'Reset all scores?',
+            body:`<p class="text-sm" style="color:var(--text-soft);">All teams will go back to 0 points. The teams themselves and rounds are kept.</p>`,
+            actions:`<button onclick="closeModal()" class="btn px-4 py-2 rounded-xl text-sm font-bold">Cancel</button>
+                     <button onclick="confirmReset()" class="px-4 py-2 rounded-xl text-sm font-bold" style="background:var(--bad); color:white;">Reset</button>`
+        });
+    }
+    function confirmReset(){
+        state.teams.forEach(t => { t.score = 0; t.shield = false; t.doubleNext = false; });
+        state.actionLog = [];
+        closeModal();
+        save();
+        renderAll();
+    }
+
+    /* =========================================================================
+       TEAMS / ROUNDS MANAGEMENT
+       ========================================================================= */
+    function addTeam(){
+        const i = state.teams.length;
+        if (i >= 8) { showToast('Maximum 8 teams.'); return; }
+        state.teams.push({
+            id: 't_'+Math.random().toString(36).slice(2,9),
+            name: `Team ${i+1}`,
+            emoji: EMOJI_SET[i % EMOJI_SET.length],
+            color: TEAM_COLORS[i % TEAM_COLORS.length],
+            students: [],
+            score: 0, shield: false, doubleNext: false
+        });
+        save(); renderTeams();
+    }
+    function removeTeam(id){
+        if (state.teams.length <= 2) { showToast('Need at least 2 teams.'); return; }
+        state.teams = state.teams.filter(t => t.id !== id);
+        save(); renderTeams();
+    }
+
+    function renameTeam(id){
+        const team = state.teams.find(t=>t.id===id);
+        openModal({
+            title:`Rename ${team.emoji} ${team.name}`,
+            body:`<input type="text" id="renameInput" value="${escapeHtml(team.name)}" autofocus>`,
+            actions:`<button onclick="closeModal()" class="btn px-4 py-2 rounded-xl text-sm font-bold">Cancel</button>
+                     <button onclick="applyRename('${id}')" class="px-4 py-2 rounded-xl text-sm font-bold" style="background:var(--accent); color:white;">Save</button>`
+        });
+        setTimeout(()=>$('renameInput').focus(), 100);
+    }
+    function applyRename(id){
+        const team = state.teams.find(t=>t.id===id);
+        team.name = $('renameInput').value.trim() || team.name;
+        closeModal(); save(); renderTeams();
+    }
+
+    function manageStudents(id){
+        const team = state.teams.find(t=>t.id===id);
+        const list = team.students.join('\n');
+        openModal({
+            title:`Students in ${team.emoji} ${team.name}`,
+            body:`<p class="text-xs mb-2" style="color:var(--text-soft);">One per line or comma-separated.</p>
+                  <textarea id="studentsInput" rows="6" placeholder="Alice, Bob, Charlie...">${escapeHtml(list)}</textarea>`,
+            actions:`<button onclick="closeModal()" class="btn px-4 py-2 rounded-xl text-sm font-bold">Cancel</button>
+                     <button onclick="applyStudents('${id}')" class="px-4 py-2 rounded-xl text-sm font-bold" style="background:var(--accent); color:white;">Save</button>`
+        });
+        setTimeout(()=>$('studentsInput').focus(), 100);
+    }
+    function applyStudents(id){
+        const team = state.teams.find(t=>t.id===id);
+        team.students = $('studentsInput').value.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean);
+        closeModal(); save(); renderTeams();
+    }
+
+    function pickTeamEmoji(id){
+        const team = state.teams.find(t=>t.id===id);
+        openModal({
+            title:`Pick icon for ${team.name}`,
+            body:`<div class="grid grid-cols-6 sm:grid-cols-8 gap-2">${EMOJI_SET.map(e=>`<button onclick="applyTeamEmoji('${id}','${e}')" class="aspect-square rounded-xl text-2xl hover:scale-110 transition" style="background:var(--card-solid); border:1px solid var(--border-strong);">${e}</button>`).join('')}</div>`,
+            actions:`<button onclick="closeModal()" class="btn px-4 py-2 rounded-xl text-sm font-bold">Done</button>`
+        });
+    }
+    function applyTeamEmoji(id, e){
+        const team = state.teams.find(t=>t.id===id);
+        team.emoji = e;
+        closeModal(); save(); renderTeams();
+    }
+
+    function addRound(){
+        const i = state.rounds.length;
+        const name = ROUND_NAMES[i] || `Round ${i+1}`;
+        const r = { id: rid(), name };
+        state.rounds.push(r);
+        state.currentRoundId = r.id;
+        save(); renderAll();
+    }
+    function newRound(){
+        addRound();
+        showToast('New round started.');
+    }
+
+    function newSession(force){
+        if (!force && state.teams.length) {
+            openModal({
+                title:'Start a new session?',
+                body:`<p class="text-sm" style="color:var(--text-soft);">This clears all teams and scores. You'll set up again from scratch.</p>`,
+                actions:`<button onclick="closeModal()" class="btn px-4 py-2 rounded-xl text-sm font-bold">Cancel</button>
+                         <button onclick="newSession(true)" class="px-4 py-2 rounded-xl text-sm font-bold" style="background:var(--bad); color:white;">New Session</button>`
+            });
+            return;
+        }
+        state.teams = [];
+        state.rounds = [{ id: rid(), name: 'Vocabulary' }];
+        state.currentRoundId = state.rounds[0].id;
+        state.actionLog = [];
+        setupTeamsDraft = [];
+        setupTeamCount = 4;
+        $('teamCountRange').value = 4;
+        $('teamCountValue').textContent = 4;
+        initSetupDraft(4, false);
+        save();
+        $('winnerScreen').classList.add('hidden');
+        $('winnerScreen').classList.remove('flex');
+        showSetup();
+    }
+
+    function rematch(){
+        state.teams.forEach(t => { t.score = 0; t.shield = false; t.doubleNext = false; });
+        state.rounds = [{ id: rid(), name: 'Vocabulary' }];
+        state.currentRoundId = state.rounds[0].id;
+        state.actionLog = [];
+        save();
+        $('winnerScreen').classList.add('hidden');
+        $('winnerScreen').classList.remove('flex');
+        renderAll();
+        showToast('Rematch! Same teams, scores reset.');
+    }
+
+    /* =========================================================================
+       RANDOM EVENTS
+       ========================================================================= */
+    function spinEvent(){
+        if (state.teams.length < 2) return;
+        const ev = EVENTS[Math.floor(Math.random()*EVENTS.length)];
+        playSound('sparkle');
+        runEvent(ev);
+    }
+    function runEvent(ev){
+        const teams = state.teams;
+        switch(ev.id){
+            case 'double': {
+                const t = teams[Math.floor(Math.random()*teams.length)];
+                t.doubleNext = true;
+                showEventBanner(`${ev.label}`, t.color, `${t.emoji} ${t.name} — next +points doubled!`);
+                break;
+            }
+            case 'bonus': {
+                const t = teams[Math.floor(Math.random()*teams.length)];
+                t.score += 5;
+                logAction(t.id, 5, 'bonus event');
+                animateScore(t.id, 5);
+                showEventBanner(`${ev.label}`, t.color, `${t.emoji} ${t.name} gets +5!`);
+                break;
+            }
+            case 'steal': {
+                const ranked = rankedTeams();
+                const leader = ranked[0];
+                if (leader && teams.length > 1) {
+                    leader.score = Math.max(0, leader.score - 5);
+                    const others = teams.filter(t => t.id !== leader.id && t.score < leader.score + 100);
+                    const target = others[Math.floor(Math.random()*others.length)] || teams[1];
+                    target.score += 5;
+                    logAction(leader.id, -5, 'stolen');
+                    logAction(target.id, 5, 'stolen to');
+                    animateScore(leader.id, -5);
+                    animateScore(target.id, 5);
+                    showEventBanner(`${ev.label}`, target.color, `${leader.emoji} ${leader.name} → ${target.emoji} ${target.name} (5 pts)`);
+                }
+                break;
+            }
+            case 'shield': {
+                const t = teams[Math.floor(Math.random()*teams.length)];
+                t.shield = true;
+                showEventBanner(`${ev.label}`, t.color, `${t.emoji} ${t.name} is protected from the next negative!`);
+                break;
+            }
+            case 'mystery': {
+                const t = teams[Math.floor(Math.random()*teams.length)];
+                const r = 1 + Math.floor(Math.random()*10);
+                t.score += r;
+                logAction(t.id, r, 'mystery');
+                animateScore(t.id, r);
+                showEventBanner(`${ev.label}`, t.color, `${t.emoji} ${t.name} wins +${r} mystery points!`);
+                break;
+            }
+        }
+        save();
+        renderTeams();
+        renderLog();
+    }
+
+    function showEventBanner(label, color, desc){
+        const banner = $('eventBanner');
+        banner.innerHTML = `<div class="font-display font-bold text-lg sm:text-xl" style="color:var(--text);">${label}</div>
+                            <div class="text-xs sm:text-sm mt-0.5" style="color:var(--text-soft);">${desc||''}</div>`;
+        banner.style.borderColor = color;
+        banner.classList.remove('hidden');
+        banner.classList.add('event-banner');
+        clearTimeout(banner._t);
+        banner._t = setTimeout(()=>{ banner.classList.add('hidden'); banner.classList.remove('event-banner'); }, 3600);
+    }
+
+    function showToast(msg){
+        // lightweight toast via event banner reuse
+        const banner = $('eventBanner');
+        banner.innerHTML = `<div class="font-semibold text-sm" style="color:var(--text);">${escapeHtml(msg)}</div>`;
+        banner.style.borderColor = 'var(--accent)';
+        banner.classList.remove('hidden');
+        banner.classList.add('event-banner');
+        clearTimeout(banner._t);
+        banner._t = setTimeout(()=>{ banner.classList.add('hidden'); banner.classList.remove('event-banner'); }, 2000);
+    }
+
+    /* =========================================================================
+       WINNER SCREEN
+       ========================================================================= */
+    function endGame(){
+        if (state.teams.length === 0) { showToast('No teams to score.'); return; }
+        playSound('winner');
+        const ranked = rankedTeams();
+        // podium
+        const podium = $('podiumArea');
+        podium.innerHTML = '';
+        const podiumOrder = [
+            { team: ranked[1], place: 2, height: 'h-28', medal:'🥈', color:'#94a3b8' },
+            { team: ranked[0], place: 1, height: 'h-44', medal:'🥇', color:'#fbbf24' },
+            { team: ranked[2], place: 3, height: 'h-20', medal:'🥉', color:'#f59e0b' },
+        ].filter(p => p.team);
+        podiumOrder.forEach((p, i) => {
+            const div = document.createElement('div');
+            div.className = 'podium-step flex flex-col items-center justify-end rounded-t-2xl px-4 ' + p.height;
+            div.style.cssText = `background: linear-gradient(180deg, color-mix(in srgb, ${p.color} 35%, var(--card-solid)), color-mix(in srgb, ${p.color} 12%, var(--card-solid))); border:2px solid ${p.color}; width:110px; animation-delay:${i*0.2}s;`;
+            div.innerHTML = `
+                <div class="text-3xl mb-1">${p.team.emoji}</div>
+                <div class="text-xs font-bold text-center truncate w-full" style="color:var(--text);">${escapeHtml(p.team.name)}</div>
+                <div class="text-2xl mb-1">${p.medal}</div>
+                <div class="font-mono-num font-extrabold text-2xl mb-2" style="color:var(--text);">${p.team.score}</div>
+            `;
+            podium.appendChild(div);
+        });
+        // full standings
+        const standings = $('finalStandings');
+        standings.innerHTML = `
+            <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--border);">
+                ${ranked.map((t, i) => `
+                    <div class="flex items-center justify-between px-3 py-2" style="background:${i%2===0?'var(--card)':'var(--card-solid)'}; border-bottom: 1px solid var(--border);">
+                        <span class="font-semibold text-sm" style="color:var(--text);"><span class="inline-block w-6">${['🥇','🥈','🥉'][i] || (i+1)+'.'}</span> ${t.emoji} ${escapeHtml(t.name)}</span>
+                        <span class="font-mono-num font-bold" style="color:var(--text);">${t.score} pts</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        $('winnerScreen').classList.remove('hidden');
+        $('winnerScreen').classList.add('flex');
+        confetti('winnerConfetti');
+    }
+
+    /* =========================================================================
+       CONFETTI
+       ========================================================================= */
+    function confetti(canvasId){
+        const canvas = $(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+        const colors = ['#f59e0b','#3b82f6','#10b981','#ec4899','#8b5cf6','#06b6d4'];
+        const parts = [];
+        for (let i = 0; i < 90; i++) {
+            parts.push({
+                x: canvas.width/2, y: canvas.height/3,
+                vx: (Math.random()-0.5)*10, vy: (Math.random()-0.9)*10,
+                size: Math.random()*6+3, color: colors[Math.floor(Math.random()*colors.length)],
+                life: 130
+            });
+        }
+        function frame(){
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            let alive = false;
+            parts.forEach(p => {
+                if (p.life > 0) {
+                    p.x += p.vx; p.y += p.vy; p.vy += 0.25; p.life -= 1.5;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+                    ctx.fill();
+                    alive = true;
+                }
+            });
+            if (alive) requestAnimationFrame(frame);
+        }
+        frame();
+    }
+
+    /* =========================================================================
+       GENERIC MODAL
+       ========================================================================= */
+    function openModal({title, body, actions}){
+        const root = $('modalRoot');
+        root.innerHTML = `
+            <div class="fixed inset-0 z-50 overlay-bg flex items-center justify-center p-4" onclick="if(event.target===this) closeModal()">
+                <div class="max-w-md w-full p-6 rounded-[1.5rem] shadow-2xl animate-pop" style="background:var(--card-solid); border: 1px solid var(--border-strong);">
+                    <h3 class="font-display font-bold text-lg mb-3" style="color:var(--text);">${title}</h3>
+                    <div class="mb-5">${body}</div>
+                    <div class="flex justify-end gap-2">${actions}</div>
+                </div>
+            </div>`;
+    }
+    function closeModal(){ $('modalRoot').innerHTML = ''; }
+
+    /* =========================================================================
+       INIT
+       ========================================================================= */
+    window.addEventListener('load', () => {
+        applyTheme();
+        const restored = load();
+        // set sound icon initial
+        if (!state.soundOn) { $('soundIcon').className='fa-solid fa-volume-xmark'; $('soundIcon').style.color='var(--text-dim)'; $('soundText').textContent='Muted'; }
+        if (restored && state.teams.length >= 2) {
+            showGame();
+        } else {
+            initSetupDraft(4, false);
+            showSetup();
+        }
+    });
+
+    /* expose to inline handlers */
+    window.onTeamCountChange = onTeamCountChange;
+    window.pickEmoji = pickEmoji;
+    window.setSetupEmoji = setSetupEmoji;
+    window.startGame = startGame;
+    window.showGame = showGame;
+    window.addPoints = addPoints;
+    window.customPoints = customPoints;
+    window.applyCustom = applyCustom;
+    window.renameTeam = renameTeam;
+    window.applyRename = applyRename;
+    window.manageStudents = manageStudents;
+    window.applyStudents = applyStudents;
+    window.pickTeamEmoji = pickTeamEmoji;
+    window.applyTeamEmoji = applyTeamEmoji;
+    window.removeTeam = removeTeam;
+    window.addTeam = addTeam;
+    window.addRound = addRound;
+    window.newRound = newRound;
+    window.resetScores = resetScores;
+    window.confirmReset = confirmReset;
+    window.undoLast = undoLast;
+    window.spinEvent = spinEvent;
+    window.endGame = endGame;
+    window.rematch = rematch;
+    window.newSession = newSession;
+    window.cycleTheme = cycleTheme;
+    window.toggleSound = toggleSound;
+    window.closeModal = closeModal;
+    </script>
+</body>
+</html>

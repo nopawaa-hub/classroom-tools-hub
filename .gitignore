@@ -1,0 +1,17 @@
+# ZCode session artifacts (internal, not part of the project)
+.zcode/
+
+# OS clutter
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor folders
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node (in case of future build tooling)
+node_modules/
+npm-debug.log*

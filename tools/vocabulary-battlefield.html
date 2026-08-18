@@ -1,0 +1,1763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Battlefield</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+
+    <style>
+        /* Light stadium theme */
+        :root {
+            --stadium: #eef2ff;
+            --stadium-2: #fef3c7;
+            --card: rgba(255,255,255,0.92);
+            --card-solid: #ffffff;
+            --border: rgba(15,23,42,0.10);
+            --border-strong: rgba(15,23,42,0.18);
+            --text: #1e1b2e;
+            --text-soft: #57534e;
+            --text-dim: #94a3b8;
+            --accent: #dc2626;
+            --good: #059669;
+            --bad: #dc2626;
+            --warning: #d97706;
+            --gold: #d97706;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--stadium);
+            background-image:
+                radial-gradient(circle at 15% 12%, rgba(59,130,246,0.18) 0%, transparent 45%),
+                radial-gradient(circle at 85% 10%, rgba(220,38,38,0.14) 0%, transparent 42%),
+                radial-gradient(circle at 50% 95%, rgba(217,119,6,0.16) 0%, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text);
+            overflow-x: hidden;
+        }
+        body::before {
+            content: '';
+            position: fixed; inset: 0;
+            background-image:
+                linear-gradient(rgba(148,163,184,0.07) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148,163,184,0.07) 1px, transparent 1px);
+            background-size: 36px 36px;
+            pointer-events: none; z-index: 0;
+        }
+
+        .font-display { font-family: 'Fredoka', cursive; }
+        .font-mono-num { font-family: 'JetBrains Mono', monospace; }
+
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+        }
+
+        /* Team fighter card */
+        .fighter {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-top: 5px solid var(--team-color, var(--accent));
+            border-radius: 1.25rem;
+            transition: transform 0.5s cubic-bezier(0.22,1,0.36,1), opacity 0.5s ease, box-shadow 0.4s ease;
+        }
+        .fighter.active {
+            box-shadow: 0 0 0 3px var(--team-color, var(--accent)), 0 14px 40px -16px var(--team-color, var(--accent));
+            transform: translateY(-4px);
+        }
+        .fighter.attacking { animation: lunge 0.45s cubic-bezier(0.22,1,0.36,1); }
+        .fighter.hit { animation: hitShake 0.45s ease; }
+        .fighter.eliminated {
+            opacity: 0.32;
+            filter: grayscale(0.6);
+            transform: scale(0.95);
+        }
+        @keyframes lunge {
+            0%,100% { transform: translateY(-4px) scale(1); }
+            50%     { transform: translateY(-4px) scale(1.05); }
+        }
+        @keyframes hitShake {
+            0%,100% { transform: translateX(0); }
+            20% { transform: translateX(-8px); }
+            40% { transform: translateX(8px); }
+            60% { transform: translateX(-5px); }
+            80% { transform: translateX(5px); }
+        }
+
+        /* HP bar */
+        .hp-track {
+            background: color-mix(in srgb, var(--text) 12%, transparent);
+            border-radius: 999px;
+            overflow: hidden;
+            height: 22px;
+            position: relative;
+            border: 1px solid var(--border);
+        }
+        .hp-fill {
+            height: 100%;
+            transition: width 0.7s cubic-bezier(0.22,1,0.36,1), background 0.4s ease;
+            border-radius: 999px;
+            position: relative;
+        }
+        .hp-fill::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(255,255,255,0.45), transparent 60%);
+            border-radius: 999px;
+        }
+
+        /* Floating damage */
+        .float-dmg {
+            position: absolute;
+            pointer-events: none;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.5rem;
+            animation: floatUp 1.3s ease-out forwards;
+            z-index: 40;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        }
+        @keyframes floatUp {
+            0%   { opacity: 0; transform: translateY(0) scale(0.6); }
+            15%  { opacity: 1; transform: translateY(-10px) scale(1.4); }
+            100% { opacity: 0; transform: translateY(-80px) scale(1.1); }
+        }
+
+        /* Power-up badge */
+        .pu-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 2px 8px; border-radius: 999px;
+            font-size: 11px; font-weight: 700;
+            background: color-mix(in srgb, var(--team-color, var(--accent)) 18%, transparent);
+            color: var(--team-color, var(--accent));
+            border: 1px solid color-mix(in srgb, var(--team-color, var(--accent)) 40%, transparent);
+            animation: badgePop 0.4s cubic-bezier(0.175,0.885,0.32,1.275) both;
+        }
+        @keyframes badgePop {
+            0% { transform: scale(0); }
+            70% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        /* Answer buttons */
+        .ans-btn {
+            background: var(--card-solid);
+            border: 2px solid var(--border-strong);
+            border-radius: 1rem;
+            padding: 1rem 1.25rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 1.05rem;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            color: var(--text);
+        }
+        .ans-btn:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 10px 25px -10px var(--accent); }
+        .ans-btn:active { transform: translateY(0) scale(0.98); }
+        .ans-btn.correct { background: var(--good); color: white; border-color: var(--good); }
+        .ans-btn.wrong { background: var(--bad); color: white; border-color: var(--bad); }
+        .ans-btn:disabled { cursor: default; }
+        .ans-btn:disabled:hover { transform: none; box-shadow: none; }
+
+        /* Screen shake */
+        @keyframes screenShake {
+            0%,100% { transform: translate(0,0); }
+            20% { transform: translate(-6px, 4px); }
+            40% { transform: translate(6px, -3px); }
+            60% { transform: translate(-4px, -4px); }
+            80% { transform: translate(4px, 3px); }
+        }
+        .shake { animation: screenShake 0.45s ease; }
+
+        /* Battle round banner */
+        @keyframes bannerSlide {
+            0% { opacity: 0; transform: translateY(-24px) scale(0.92); }
+            10% { opacity: 1; transform: translateY(0) scale(1); }
+            85% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-12px) scale(0.96); }
+        }
+        .banner { animation: bannerSlide 2.6s ease-in-out forwards; }
+
+        /* Modal pop */
+        @keyframes modalPop {
+            0% { opacity: 0; transform: scale(0.88) translateY(20px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-pop { animation: modalPop 0.3s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
+
+        /* Champion screen */
+        @keyframes podiumDrop {
+            0% { opacity: 0; transform: translateY(-50px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .podium-step { animation: podiumDrop 0.7s cubic-bezier(0.22,1,0.36,1) both; }
+        @keyframes championGlow {
+            0%,100% { filter: drop-shadow(0 0 12px rgba(217,119,6,0.5)); }
+            50% { filter: drop-shadow(0 0 26px rgba(217,119,6,0.9)); }
+        }
+        .champion-glow { animation: championGlow 1.8s ease-in-out infinite; }
+
+        /* range slider */
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none; height: 8px; background: var(--border-strong); border-radius: 999px; outline: none; width:100%;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 3px solid var(--card-solid); box-shadow: 0 0 0 2px var(--accent);
+        }
+        input[type="range"]::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 3px solid var(--card-solid); box-shadow: 0 0 0 2px var(--accent); }
+
+        input[type="text"], textarea, select, input[type="number"] {
+            background: var(--card-solid); border: 1px solid var(--border-strong); color: var(--text);
+            border-radius: 0.85rem; padding: 0.55rem 0.85rem; outline: none; transition: border-color 0.2s ease; width:100%;
+        }
+        input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+
+        .btn {
+            background: var(--card-solid); border: 1px solid var(--border-strong); color: var(--text);
+            transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease; cursor: pointer;
+            border-radius: 0.9rem; padding: 0.55rem 0.85rem; font-weight: 700; font-size: 0.8rem;
+        }
+        .btn:hover { transform: translateY(-2px); }
+        .btn:active { transform: translateY(0) scale(0.96); }
+
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; }
+    </style>
+</head>
+<body class="min-h-screen relative select-none">
+
+    <!-- battle shake wrapper -->
+    <div id="shakeWrap" class="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+
+        <!-- ============ HEADER ============ -->
+        <header class="panel rounded-[1.75rem] px-4 sm:px-6 py-3.5 sm:py-4 flex flex-wrap items-center justify-between gap-3 shadow-[0_12px_40px_-18px_rgba(220,38,38,0.4)]">
+            <div class="flex items-center gap-3 sm:gap-4">
+                <div class="relative w-14 h-14 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl shadow-inner ring-2 ring-white/40"
+                     style="background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 35%, transparent), color-mix(in srgb, var(--warning) 35%, transparent));">
+                    <i class="fa-solid fa-shield-halved" style="color: var(--accent);"></i>
+                </div>
+                <div>
+                    <h1 class="font-display text-2xl sm:text-3xl font-bold leading-tight tracking-tight" style="color: var(--text);">
+                        ⚔️ Vocabulary Battlefield
+                    </h1>
+                    <p class="text-xs sm:text-sm" style="color: var(--text-soft);">
+                        Teams battle by answering vocabulary questions. Last team standing wins.
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 sm:gap-2.5">
+                <button id="soundBtn" onclick="toggleSound()" class="btn flex items-center gap-2" title="Mute">
+                    <i id="soundIcon" class="fa-solid fa-volume-high" style="color: var(--good);"></i>
+                    <span id="soundText" class="hidden sm:inline">Sound</span>
+                </button>
+                <button onclick="toggleFullscreen()" class="btn flex items-center gap-2" title="Fullscreen">
+                    <i id="fsIcon" class="fa-solid fa-expand"></i>
+                    <span class="hidden sm:inline">Projector</span>
+                </button>
+                <button onclick="resetGame()" class="btn flex items-center gap-2" style="color: var(--bad);" title="Reset">
+                    <i class="fa-solid fa-power-off"></i><span class="hidden sm:inline">Reset</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- ============ SETUP SCREEN ============ -->
+        <section id="setupScreen" class="panel rounded-[1.75rem] p-5 sm:p-8 mt-5 max-w-3xl mx-auto">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-3 shadow-inner" style="background: color-mix(in srgb, var(--accent) 18%, transparent);">
+                    <i class="fa-solid fa-people-group text-3xl" style="color: var(--accent);"></i>
+                </div>
+                <h2 class="font-display text-2xl sm:text-3xl font-bold" style="color: var(--text);">Prepare for battle</h2>
+                <p class="text-sm mt-1" style="color: var(--text-soft);">Set up your teams and battle rules.</p>
+            </div>
+
+            <!-- teams count -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-xs font-bold uppercase tracking-wider" style="color: var(--text-soft);"><i class="fa-solid fa-users mr-1.5"></i>Number of teams?</label>
+                    <span id="teamCountValue" class="font-mono-num font-bold text-2xl" style="color: var(--accent);">2</span>
+                </div>
+                <input type="range" id="teamCountRange" min="2" max="6" value="2" oninput="onTeamCountChange(this.value)">
+                <div class="flex justify-between text-[10px] mt-1 font-bold" style="color: var(--text-dim);">
+                    <span>2</span><span>3</span><span>4</span><span>5</span><span>6</span>
+                </div>
+            </div>
+
+            <div id="setupTeams" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6"></div>
+
+            <!-- battle options -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+                <div>
+                    <label class="text-[11px] font-bold uppercase block mb-1" style="color: var(--text-soft);">Topic</label>
+                    <select id="setupTopic" onchange="onAnySetupChange()">
+                        <option value="Any">Any topic</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold uppercase block mb-1" style="color: var(--text-soft);">Year</label>
+                    <select id="setupYear" onchange="onAnySetupChange()">
+                        <option value="Any">Any</option>
+                        <option value="1">Year 1</option><option value="2">Year 2</option><option value="3">Year 3</option>
+                        <option value="4">Year 4</option><option value="5">Year 5</option><option value="6">Year 6</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold uppercase block mb-1" style="color: var(--text-soft);">Difficulty</label>
+                    <select id="setupDifficulty" onchange="onAnySetupChange()">
+                        <option value="mixed">Mixed</option>
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold uppercase block mb-1" style="color: var(--text-soft);">Questions</label>
+                    <select id="setupNumQ" onchange="onAnySetupChange()">
+                        <option value="10">10</option>
+                        <option value="15">15</option>
+                        <option value="20">20</option>
+                        <option value="999">∞ (last standing)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold uppercase block mb-1" style="color: var(--text-soft);">Time / question</label>
+                    <select id="setupTime" onchange="onAnySetupChange()">
+                        <option value="0">Off</option>
+                        <option value="15">15s</option>
+                        <option value="30" selected>30s</option>
+                        <option value="60">60s</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button onclick="startBattle()" class="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition active:scale-95"
+                            style="background: var(--accent); color: white; box-shadow: 0 6px 18px -6px var(--accent);">
+                        <i class="fa-solid fa-bolt"></i> Start Battle
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ BATTLE SCREEN ============ -->
+        <section id="battleScreen" class="hidden mt-5">
+            <!-- battle status bar -->
+            <div class="panel rounded-2xl px-4 py-3 mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text-soft);">Round</span>
+                    <span id="roundNum" class="font-mono-num font-extrabold text-2xl" style="color: var(--accent);">1</span>
+                    <span class="text-xs" style="color: var(--text-dim);">of <span id="totalQ">10</span></span>
+                </div>
+                <div id="turnInfo" class="text-sm font-bold flex items-center gap-2" style="color: var(--text);">
+                    <i class="fa-solid fa-flag-checkered"></i> <span id="turnTeam">Team Tiger</span>'s turn
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="timerToggleBtn" onclick="toggleTimer()" class="btn flex items-center gap-1.5" title="Start/Pause timer"><i class="fa-solid fa-stopwatch"></i><span id="timerToggleLabel">Start Timer</span></button>
+                    <span id="timerText" class="hidden font-mono-num font-bold text-lg" style="color: var(--accent);">30s</span>
+                </div>
+            </div>
+
+            <!-- fighters grid -->
+            <div id="fightersGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5"></div>
+
+            <!-- Question arena -->
+            <div id="arena" class="panel rounded-[1.5rem] p-5 sm:p-8 relative overflow-hidden min-h-[260px]">
+                <div id="questionContent"></div>
+                <canvas id="arenaConfetti" class="absolute inset-0 pointer-events-none" style="z-index:1;"></canvas>
+            </div>
+
+            <!-- Teacher dashboard (simple, big buttons) -->
+            <div class="panel rounded-2xl px-3 py-2.5 mt-4 flex flex-wrap items-center gap-2">
+                <span class="text-[11px] font-bold uppercase tracking-wider px-1" style="color: var(--text-soft);"><i class="fa-solid fa-chalkboard-user mr-1"></i>Teacher:</span>
+                <button onclick="nextQuestion(true)" class="btn flex items-center gap-1.5"><i class="fa-solid fa-forward"></i>Next</button>
+                <button onclick="revealAnswer()" class="btn flex items-center gap-1.5"><i class="fa-solid fa-eye"></i>Reveal</button>
+                <button onclick="manualDamage()" class="btn flex items-center gap-1.5" style="color: var(--bad);"><i class="fa-solid fa-burst"></i>Damage</button>
+                <button onclick="manualHeal()" class="btn flex items-center gap-1.5" style="color: var(--good);"><i class="fa-solid fa-heart-pulse"></i>Heal</button>
+                <button onclick="manualPowerUp()" class="btn flex items-center gap-1.5" style="color: var(--warning);"><i class="fa-solid fa-wand-magic-sparkles"></i>Power-up</button>
+                <button onclick="skipQuestion()" class="btn flex items-center gap-1.5"><i class="fa-solid fa-forward-step"></i>Skip</button>
+                <button onclick="openVocabEditor()" class="btn flex items-center gap-1.5 ml-auto"><i class="fa-solid fa-pen-to-square"></i><span class="hidden sm:inline">Edit Vocab</span></button>
+                <button onclick="endGame()" class="btn flex items-center gap-1.5" style="background: var(--accent); color: white; border-color: var(--accent);"><i class="fa-solid fa-flag-checkered"></i>End Game</button>
+            </div>
+        </section>
+
+        <footer class="text-center text-xs mt-8 pb-4" style="color: var(--text-dim);">
+            Vocabulary Battlefield &bull; Answer well, attack hard, last team standing wins.
+        </footer>
+    </div>
+
+    <!-- ============ BANNER ============ -->
+    <div id="banner" class="hidden fixed top-6 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl shadow-2xl text-center" style="background: var(--card-solid); border: 2px solid var(--accent);"></div>
+
+    <!-- ============ MODAL ROOT ============ -->
+    <div id="modalRoot"></div>
+
+    <!-- ============ CHAMPION SCREEN ============ -->
+    <div id="championScreen" class="hidden fixed inset-0 z-50 backdrop-blur-md items-center justify-center p-4" style="background: color-mix(in srgb, var(--stadium) 80%, transparent);">
+        <div class="relative max-w-2xl w-full p-6 sm:p-10 rounded-[2rem] shadow-2xl animate-pop text-center" style="background: var(--card-solid); border: 1px solid var(--border-strong);">
+            <canvas id="championConfetti" class="absolute inset-0 pointer-events-none rounded-[2rem]"></canvas>
+            <div class="relative z-10">
+                <div class="champion-glow inline-flex items-center justify-center w-20 h-20 rounded-3xl mb-3 shadow-xl" style="background: linear-gradient(135deg, var(--gold), var(--accent));">
+                    <i class="fa-solid fa-trophy text-4xl text-white"></i>
+                </div>
+                <div class="text-xs font-bold uppercase tracking-widest mb-1" style="color: var(--gold);">Champion</div>
+                <h2 id="championName" class="font-display text-3xl sm:text-4xl font-bold mb-1" style="color: var(--text);">TEAM TIGER 🐯</h2>
+                <p class="font-display text-lg mb-6" style="color: var(--text-soft);">Vocabulary Masters!</p>
+                <div id="finalStandings" class="text-left mb-7"></div>
+                <div class="flex flex-wrap justify-center gap-3">
+                    <button onclick="newBattle()" class="px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2" style="background: var(--accent); color: white;">
+                        <i class="fa-solid fa-rotate"></i> New Battle
+                    </button>
+                    <button onclick="rematch()" class="btn font-bold text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-shield-halved"></i> Rematch (same teams)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+    /* =========================================================================
+       VOCABULARY BATTLEFIELD
+       ========================================================================= */
+    const STORAGE_KEY = 'vb_custom_vocab_v1';
+    const TEAM_COLORS = ['#dc2626','#2563eb','#059669','#d97706','#7c3aed','#0891b2'];
+    const EMOJI_SET = ['🐯','🦁','🦅','🦈','🐉','🐺','🚀','⭐','🔥','💎','🎯','🐻','🦊','🦉','🦓','🐢','🐙','🦄','🐼','🐸','🐝','🦖','🦕','🦔'];
+    const TOPIC_NAMES = ['Food','Animals','Family','School','Hobbies','Places','Jobs','Transportation','Weather','Daily Routines','Feelings','Adjectives'];
+
+    /* --- Vocabulary bank (13 topics) --- */
+    const VOCAB = {
+        Food: [
+            { word:'apple', emoji:'🍎', meaning:'a round red or green fruit', example:'I eat an ___ every day.' },
+            { word:'banana', emoji:'🍌', meaning:'a long yellow fruit', example:'Monkeys love ___s.' },
+            { word:'bread', emoji:'🍞', meaning:'food made from flour and water, baked', example:'I had ___ for breakfast.' },
+            { word:'cheese', emoji:'🧀', meaning:'a food made from milk', example:'Mice love ___.' },
+            { word:'egg', emoji:'🥚', meaning:'an oval food from a hen', example:'I boiled an ___.' },
+            { word:'milk', emoji:'🥛', meaning:'a white drink from cows', example:'I drink ___ every morning.' },
+            { word:'rice', emoji:'🍚', meaning:'small white grains we eat', example:'We had ___ and chicken.' },
+            { word:'pizza', emoji:'🍕', meaning:'a flat Italian food with cheese on top', example:'I love cheese ___.' },
+            { word:'cake', emoji:'🎂', meaning:'a sweet baked food for birthdays', example:'I blew out the candles on my ___.' },
+            { word:'ice cream', emoji:'🍦', meaning:'a cold sweet dessert', example:'In summer I eat ___.' },
+            { word:'fish', emoji:'🐟', meaning:'an animal that lives in water', example:'We saw a ___ in the river.' },
+        ],
+        Animals: [
+            { word:'dog', emoji:'🐶', meaning:'an animal that barks and wags its tail', example:'My ___ runs to meet me.' },
+            { word:'cat', emoji:'🐱', meaning:'an animal that says meow', example:'The ___ is sleeping.' },
+            { word:'rabbit', emoji:'🐰', meaning:'a small animal with long ears', example:'The ___ ate a carrot.' },
+            { word:'lion', emoji:'🦁', meaning:'a big wild cat, the king of the jungle', example:'The ___ roared loudly.' },
+            { word:'elephant', emoji:'🐘', meaning:'a huge grey animal with a long trunk', example:'An ___ has big ears.' },
+            { word:'monkey', emoji:'🐵', meaning:'an animal that loves bananas and climbs trees', example:'The ___ swung on the branch.' },
+            { word:'bird', emoji:'🐦', meaning:'an animal that can fly and has feathers', example:'A ___ sang in the tree.' },
+            { word:'horse', emoji:'🐴', meaning:'a big animal people can ride', example:'I rode a ___ at the farm.' },
+            { word:'cow', emoji:'🐮', meaning:'a farm animal that gives us milk', example:'The ___ said moo.' },
+            { word:'pig', emoji:'🐷', meaning:'a pink farm animal', example:'The ___ rolled in the mud.' },
+            { word:'bear', emoji:'🐻', meaning:'a big animal that sleeps in winter', example:'The ___ caught fish in the river.' },
+        ],
+        Family: [
+            { word:'mother', emoji:'👩', meaning:'a female parent', example:'My ___ cooks dinner.' },
+            { word:'father', emoji:'👨', meaning:'a male parent', example:'My ___ drives the car.' },
+            { word:'sister', emoji:'👧', meaning:'a girl who has the same parents as you', example:'My ___ is older than me.' },
+            { word:'brother', emoji:'👦', meaning:'a boy who has the same parents as you', example:'My ___ plays football.' },
+            { word:'baby', emoji:'👶', meaning:'a very young child', example:'The ___ is sleeping.' },
+            { word:'grandma', emoji:'👵', meaning:'the mother of your parents', example:'My ___ tells stories.' },
+            { word:'grandpa', emoji:'👴', meaning:'the father of your parents', example:'My ___ walks slowly.' },
+            { word:'family', emoji:'👨‍👩‍👧', meaning:'a group of people who are related', example:'I love my ___.' },
+        ],
+        School: [
+            { word:'book', emoji:'📕', meaning:'pages with words you can read', example:'I read a ___.' },
+            { word:'pencil', emoji:'✏️', meaning:'a wooden stick used for writing', example:'I wrote with a ___.' },
+            { word:'teacher', emoji:'🧑‍🏫', meaning:'a person who teaches in school', example:'My ___ is kind.' },
+            { word:'desk', emoji:'🪑', meaning:'a table where you sit to work', example:'I sit at my ___.' },
+            { word:'bag', emoji:'🎒', meaning:'a sack to carry school things', example:'I put books in my ___.' },
+            { word:'ruler', emoji:'📏', meaning:'a stick used to measure or draw straight lines', example:'I used a ___ to draw a line.' },
+            { word:'scissors', emoji:'✂️', meaning:'a tool used to cut paper', example:'I cut the paper with ___.' },
+            { word:'clock', emoji:'🕐', meaning:'a thing that tells the time', example:'The ___ shows three o\'clock.' },
+            { word:'crayon', emoji:'🖍️', meaning:'a colored stick for drawing', example:'I drew with a red ___.' },
+        ],
+        Hobbies: [
+            { word:'football', emoji:'⚽', meaning:'a sport played with a round ball and feet', example:'We played ___ after school.' },
+            { word:'painting', emoji:'🎨', meaning:'making pictures with colors', example:'I love ___ with watercolors.' },
+            { word:'music', emoji:'🎵', meaning:'sounds that are pleasant to hear', example:'I listen to ___ every day.' },
+            { word:'dancing', emoji:'💃', meaning:'moving your body to music', example:'She was ___ at the party.' },
+            { word:'reading', emoji:'📖', meaning:'looking at and understanding written words', example:'My hobby is ___.' },
+            { word:'swimming', emoji:'🏊', meaning:'moving through water', example:'We went ___ in the pool.' },
+            { word:'cooking', emoji:'🍳', meaning:'making food', example:'I help mum with ___.' },
+            { word:'guitar', emoji:'🎸', meaning:'a musical instrument with strings', example:'He plays the ___.' },
+            { word:'cycling', emoji:'🚴', meaning:'riding a bicycle', example:'I go ___ on Sundays.' },
+            { word:'games', emoji:'🎮', meaning:'activities you play for fun', example:'I love video ___.' },
+        ],
+        Places: [
+            { word:'hospital', emoji:'🏥', meaning:'a place where sick people go to get better', example:'She works at the ___.' },
+            { word:'school', emoji:'🏫', meaning:'a place where children learn', example:'I go to ___ by bus.' },
+            { word:'park', emoji:'🏞️', meaning:'a public green place to play', example:'We had a picnic in the ___.' },
+            { word:'library', emoji:'📚', meaning:'a place full of books to borrow', example:'I borrowed a book from the ___.' },
+            { word:'market', emoji:'🛒', meaning:'a place to buy food and things', example:'Mum bought fruit at the ___.' },
+            { word:'airport', emoji:'✈️', meaning:'a place where planes take off and land', example:'We met him at the ___.' },
+            { word:'bakery', emoji:'🥖', meaning:'a shop that sells bread and cakes', example:'I bought bread at the ___.' },
+            { word:'beach', emoji:'🏖️', meaning:'a sandy place next to the sea', example:'We built sandcastles at the ___.' },
+            { word:'zoo', emoji:'🦁', meaning:'a place where you can see wild animals', example:'We saw lions at the ___.' },
+            { word:'cinema', emoji:'🎬', meaning:'a place where you watch films', example:'We went to the ___ on Saturday.' },
+        ],
+        Jobs: [
+            { word:'doctor', emoji:'🧑‍⚕️', meaning:'a person who helps sick people', example:'The ___ gave me medicine.' },
+            { word:'teacher', emoji:'🧑‍🏫', meaning:'a person who teaches children', example:'My ___ is kind.' },
+            { word:'farmer', emoji:'👨‍🌾', meaning:'a person who grows food and animals', example:'The ___ has many cows.' },
+            { word:'police officer', emoji:'👮', meaning:'a person who keeps people safe', example:'The ___ helped me cross the road.' },
+            { word:'chef', emoji:'👨‍🍳', meaning:'a person who cooks food in a restaurant', example:'The ___ made a delicious pizza.' },
+            { word:'nurse', emoji:'👩‍⚕️', meaning:'a person who cares for sick people in hospital', example:'The ___ took my temperature.' },
+            { word:'pilot', emoji:'👨‍✈️', meaning:'a person who flies a plane', example:'The ___ flew us to London.' },
+            { word:'firefighter', emoji:'🧑‍🚒', meaning:'a person who puts out fires', example:'The ___ saved the cat.' },
+            { word:'dentist', emoji:'🦷', meaning:'a person who looks after your teeth', example:'I visited the ___ today.' },
+            { word:'artist', emoji:'🧑‍🎨', meaning:'a person who draws or paints', example:'The ___ painted a sunset.' },
+        ],
+        Transportation: [
+            { word:'car', emoji:'🚗', meaning:'a vehicle with four wheels', example:'We went by ___.' },
+            { word:'bus', emoji:'🚌', meaning:'a big vehicle that carries many people', example:'I take the ___ to school.' },
+            { word:'train', emoji:'🚂', meaning:'a long vehicle that runs on tracks', example:'The ___ is fast.' },
+            { word:'plane', emoji:'✈️', meaning:'a vehicle that flies in the sky', example:'We took a ___ to Paris.' },
+            { word:'boat', emoji:'⛵', meaning:'a vehicle that travels on water', example:'We rowed the ___.' },
+            { word:'bicycle', emoji:'🚲', meaning:'a two-wheeled vehicle you pedal', example:'I ride my ___ to school.' },
+            { word:'motorcycle', emoji:'🏍️', meaning:'a two-wheeled vehicle with an engine', example:'Dad rides a ___.' },
+            { word:'helicopter', emoji:'🚁', meaning:'a flying vehicle with spinning blades on top', example:'A ___ flew over our house.' },
+            { word:'ship', emoji:'🚢', meaning:'a very big boat', example:'The ___ crossed the ocean.' },
+            { word:'taxi', emoji:'🚕', meaning:'a car you pay to ride in', example:'We took a ___ to the airport.' },
+        ],
+        Weather: [
+            { word:'sun', emoji:'☀️', meaning:'the bright thing in the sky during the day', example:'The ___ is shining.' },
+            { word:'rain', emoji:'🌧️', meaning:'water falling from clouds', example:'I got wet in the ___.' },
+            { word:'cloud', emoji:'☁️', meaning:'a white or grey shape in the sky', example:'A ___ covered the sun.' },
+            { word:'snow', emoji:'❄️', meaning:'white flakes that fall in winter', example:'We played in the ___.' },
+            { word:'wind', emoji:'💨', meaning:'air that moves', example:'The ___ blew my hat off.' },
+            { word:'storm', emoji:'⛈️', meaning:'heavy rain with strong wind and lightning', example:'The ___ was loud.' },
+            { word:'rainbow', emoji:'🌈', meaning:'colored arc in the sky after rain', example:'I saw a ___ after the rain.' },
+            { word:'umbrella', emoji:'☔', meaning:'a thing you hold to stay dry in rain', example:'I opened my ___.' },
+            { word:'lightning', emoji:'⚡', meaning:'a flash of electricity in the sky', example:'The ___ lit up the sky.' },
+        ],
+        'Daily Routines': [
+            { word:'breakfast', emoji:'🍳', meaning:'the first meal of the day', example:'I eat ___ at seven.' },
+            { word:'brush', emoji:'🪥', meaning:'to clean your teeth', example:'I ___ my teeth twice a day.' },
+            { word:'sleep', emoji:'😴', meaning:'to rest with your eyes closed', example:'I ___ at night.' },
+            { word:'wake up', emoji:'⏰', meaning:'to stop sleeping', example:'I ___ at six.' },
+            { word:'dress', emoji:'👕', meaning:'to put on clothes', example:'I ___ myself.' },
+            { word:'shower', emoji:'🚿', meaning:'washing your body with water', example:'I take a ___ every morning.' },
+            { word:'lunch', emoji:'🥪', meaning:'a meal in the middle of the day', example:'We had ___ at noon.' },
+            { word:'homework', emoji:'📝', meaning:'school work you do at home', example:'I finished my ___.' },
+            { word:'dinner', emoji:'🍽️', meaning:'the main meal in the evening', example:'We eat ___ at seven.' },
+        ],
+        Feelings: [
+            { word:'happy', emoji:'😊', meaning:'feeling good or pleased', example:'I am ___ today.' },
+            { word:'sad', emoji:'😢', meaning:'feeling bad or unhappy', example:'The film made me ___.' },
+            { word:'angry', emoji:'😠', meaning:'feeling cross or mad', example:'Don\'t be ___ with me.' },
+            { word:'tired', emoji:'😴', meaning:'needing sleep or rest', example:'I am very ___.' },
+            { word:'scared', emoji:'😨', meaning:'feeling fear', example:'I am ___ of spiders.' },
+            { word:'excited', emoji:'🤩', meaning:'very happy and looking forward to something', example:'I am ___ about my birthday.' },
+            { word:'surprised', emoji:'😮', meaning:'feeling amazed or shocked', example:'I was ___ by the gift.' },
+            { word:'hungry', emoji:'😋', meaning:'wanting food', example:'I am ___ for lunch.' },
+            { word:'thirsty', emoji:'🥤', meaning:'wanting a drink', example:'I am ___ after running.' },
+            { word:'bored', emoji:'🥱', meaning:'feeling not interested', example:'I am ___ at home.' },
+        ],
+        Adjectives: [
+            { word:'big', meaning:'very large in size', example:'The elephant is ___.' },
+            { word:'small', meaning:'not large in size', example:'The mouse is ___.' },
+            { word:'tall', meaning:'high in shape', example:'My brother is very ___.' },
+            { word:'short', meaning:'not tall', example:'I am ___ for my age.' },
+            { word:'fast', meaning:'moving quickly', example:'The cheetah is ___.' },
+            { word:'slow', meaning:'not quick', example:'The turtle is ___.' },
+            { word:'heavy', meaning:'having a lot of weight', example:'This box is ___.' },
+            { word:'light', meaning:'not heavy', example:'This feather is ___.' },
+            { word:'beautiful', meaning:'very pretty to look at', example:'The flower is ___.' },
+            { word:'enormous', meaning:'very, very big', example:'The dinosaur was ___.' },
+            { word:'tiny', meaning:'very, very small', example:'The ant is ___.' },
+            { word:'quiet', meaning:'making no sound', example:'Please be ___.' },
+        ],
+        Custom: []
+    };
+
+    // Load custom vocab
+    let customVocab = [];
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+            const obj = JSON.parse(raw);
+            if (Array.isArray(obj) && obj.length) {
+                VOCAB.Custom = obj;
+            }
+        }
+    } catch(e){}
+
+    /* --- State --- */
+    const POWERUPS = [
+        { id:'critical',  icon:'🔥', name:'Critical Hit', desc:'Next attack deals DOUBLE damage.' },
+        { id:'shield',    icon:'🛡', name:'Shield',       desc:'Block the next attack on your team.' },
+        { id:'lightning', icon:'⚡', name:'Lightning',     desc:'Answer TWO questions this turn.' },
+        { id:'heal',      icon:'❤️', name:'Heal',          desc:'Recover 10 HP.' },
+        { id:'steal',     icon:'🎯', name:'Steal',         desc:'Take 10 HP from any team.' },
+    ];
+
+    let state = {
+        phase: 'setup',     // setup | battle | end
+        teams: [],
+        config: { topic:'Any', year:'Any', difficulty:'mixed', numQ:10, timePerQ:30 },
+        questionNum: 0,
+        currentQuestion: null,    // { type, prompt, options[], correctIdx, word, topic }
+        activeTeamIdx: 0,
+        answeredThisTurn: false,
+        questionsRemaining: 10,
+        attemptsThisTurn: 0,      // for lightning
+        correctStreakByTeam: {},  // teamId -> count (for earned power-ups)
+        soundOn: true,
+        timer: { running:false, remaining:0, interval:null },
+        usedWords: new Set(),
+    };
+
+    /* helpers */
+    function $(id){ return document.getElementById(id); }
+    function rid(){ return 't_'+Math.random().toString(36).slice(2,9); }
+    function shuffle(a){ const x=a.slice(); for(let i=x.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [x[i],x[j]]=[x[j],x[i]]; } return x; }
+    function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+    function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+    function damageFor(diff){ return { easy:5, medium:10, hard:20 }[diff] || 10; }
+
+    /* =====================================================================
+       SOUND
+       ===================================================================== */
+    let audioCtx;
+    function tone(freq, when, dur, type='sine', vol=0.22){
+        try {
+            if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + when);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime + when);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + when + dur);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(audioCtx.currentTime + when);
+            osc.stop(audioCtx.currentTime + when + dur);
+        } catch(e){}
+    }
+    function playSound(kind){
+        if (!state.soundOn) return;
+        if (kind==='correct') { tone(523.25,0,0.16,'sine',0.25); tone(659.25,0.08,0.18,'sine',0.25); tone(783.99,0.16,0.22,'sine',0.25); }
+        else if (kind==='wrong') { tone(330,0,0.2,'triangle',0.22); tone(247,0.12,0.28,'triangle',0.22); }
+        else if (kind==='attack') { tone(180,0,0.08,'sawtooth',0.22); tone(120,0.06,0.18,'sawtooth',0.22); }
+        else if (kind==='powerup') { tone(659,0,0.1,'triangle',0.2); tone(880,0.08,0.12,'triangle',0.2); tone(1175,0.16,0.16,'triangle',0.2); }
+        else if (kind==='eliminate') { tone(440,0,0.2,'triangle',0.22); tone(330,0.12,0.25,'triangle',0.22); tone(220,0.26,0.4,'triangle',0.22); }
+        else if (kind==='champion') { [523.25,659.25,783.99,1046.5,1318.5].forEach((f,i)=>tone(f,i*0.15,0.55,'sine',0.3)); }
+    }
+    function toggleSound(){
+        state.soundOn = !state.soundOn;
+        const icon=$('soundIcon'), label=$('soundText');
+        if (state.soundOn) { icon.className='fa-solid fa-volume-high'; icon.style.color='var(--good)'; label.textContent='Sound'; }
+        else { icon.className='fa-solid fa-volume-xmark'; icon.style.color='var(--text-dim)'; label.textContent='Muted'; }
+    }
+
+    /* =====================================================================
+       FULLSCREEN
+       ===================================================================== */
+    function toggleFullscreen(){
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(()=>{});
+            $('fsIcon').className = 'fa-solid fa-compress';
+        } else {
+            document.exitFullscreen().catch(()=>{});
+            $('fsIcon').className = 'fa-solid fa-expand';
+        }
+    }
+
+    /* =====================================================================
+       SETUP SCREEN
+       ===================================================================== */
+    let setupTeamCount = 2;
+    let setupTeamsDraft = [];
+    const DEFAULT_TEAM_NAMES = ['Tiger','Lion','Eagle','Shark','Dragon','Wolf'];
+
+    function initSetupDraft(n, preserve=true){
+        const prev = setupTeamsDraft.slice();
+        setupTeamsDraft = [];
+        for (let i=0; i<n; i++){
+            setupTeamsDraft.push(prev[i] && preserve ? prev[i] : {
+                name: `Team ${DEFAULT_TEAM_NAMES[i]}`,
+                emoji: EMOJI_SET[i % EMOJI_SET.length]
+            });
+        }
+        renderSetupTeams();
+    }
+    function onTeamCountChange(v){
+        setupTeamCount = Number(v);
+        $('teamCountValue').textContent = v;
+        initSetupDraft(setupTeamCount);
+    }
+    function onAnySetupChange(){
+        state.config.topic = $('setupTopic').value;
+        state.config.year = $('setupYear').value;
+        state.config.difficulty = $('setupDifficulty').value;
+        state.config.numQ = Number($('setupNumQ').value);
+        state.config.timePerQ = Number($('setupTime').value);
+    }
+    function populateTopicDropdown(){
+        const sel = $('setupTopic');
+        TOPIC_NAMES.forEach(t => {
+            const o = document.createElement('option');
+            o.value = t; o.textContent = t;
+            sel.appendChild(o);
+        });
+        if (VOCAB.Custom.length) {
+            const o = document.createElement('option');
+            o.value = 'Custom'; o.textContent = 'Custom (teacher)';
+            sel.appendChild(o);
+        }
+    }
+    function renderSetupTeams(){
+        const root = $('setupTeams');
+        root.innerHTML = '';
+        setupTeamsDraft.forEach((t,i) => {
+            const color = TEAM_COLORS[i % TEAM_COLORS.length];
+            const card = document.createElement('div');
+            card.className = 'rounded-2xl p-3.5';
+            card.style.cssText = `background: color-mix(in srgb, ${color} 10%, var(--card-solid)); border: 1px solid color-mix(in srgb, ${color} 35%, transparent);`;
+            card.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <button onclick="pickSetupEmoji(${i})" class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" style="background: ${color}; color:white;" title="Change icon">${t.emoji}</button>
+                    <input type="text" value="${escapeHtml(t.name)}" oninput="setupTeamsDraft[${i}].name = this.value" placeholder="Team name" class="flex-1 font-semibold">
+                </div>`;
+            root.appendChild(card);
+        });
+    }
+    function pickSetupEmoji(idx){
+        openModal({
+            title:'Pick a team icon',
+            body:`<div class="grid grid-cols-6 sm:grid-cols-8 gap-2">${EMOJI_SET.map(e=>`<button onclick="setSetupEmoji(${idx}, '${e}')" class="aspect-square rounded-xl text-2xl hover:scale-110 transition" style="background:var(--card-solid); border:1px solid var(--border-strong);">${e}</button>`).join('')}</div>`,
+            actions:`<button onclick="closeModal()" class="btn">Done</button>`
+        });
+    }
+    function setSetupEmoji(idx, e){ setupTeamsDraft[idx].emoji = e; renderSetupTeams(); closeModal(); }
+
+    function startBattle(){
+        onAnySetupChange();
+        state.teams = setupTeamsDraft.map((t,i) => ({
+            id: rid(),
+            name: t.name.trim() || `Team ${i+1}`,
+            emoji: t.emoji,
+            color: TEAM_COLORS[i % TEAM_COLORS.length],
+            hp: 100,
+            maxHp: 100,
+            powerups: [],         // queued effects: array of power-up ids
+            shieldReady: false,
+            criticalReady: false,
+            lightningCharges: 0,
+            correct: 0,
+            wrong: 0,
+            points: 0,
+            eliminated: false,
+        }));
+        if (state.teams.length < 2) { alert('Need at least 2 teams.'); return; }
+        state.phase = 'battle';
+        state.questionNum = 0;
+        state.questionsRemaining = state.config.numQ;
+        state.activeTeamIdx = 0;
+        state.usedWords = new Set();
+        state.correctStreakByTeam = {};
+        showBattle();
+        showBanner(`⚔️ BATTLE ROUND`, '', 'var(--accent)');
+        setTimeout(() => nextQuestion(false), 900);
+    }
+
+    function showSetup(){
+        $('setupScreen').classList.remove('hidden');
+        $('battleScreen').classList.add('hidden');
+    }
+    function showBattle(){
+        $('setupScreen').classList.add('hidden');
+        $('battleScreen').classList.remove('hidden');
+        renderFighters();
+        $('totalQ').textContent = state.config.numQ >= 999 ? '∞' : state.config.numQ;
+    }
+
+    /* =====================================================================
+       QUESTION GENERATION
+       ===================================================================== */
+    function availableWords(){
+        const topic = state.config.topic;
+        let pool = [];
+        if (topic === 'Any') {
+            TOPIC_NAMES.forEach(t => pool = pool.concat(VOCAB[t].map(w => Object.assign({topic:t}, w))));
+        } else {
+            pool = (VOCAB[topic] || []).map(w => Object.assign({topic}, w));
+        }
+        // filter unused
+        const fresh = pool.filter(w => !state.usedWords.has(w.word));
+        return fresh.length ? fresh : pool; // wrap-around if exhausted
+    }
+    function chooseDifficulty(){
+        if (state.config.difficulty === 'mixed') return pick(['easy','medium','hard']);
+        return state.config.difficulty;
+    }
+    function pickWord(){
+        const pool = availableWords();
+        const w = pick(pool);
+        state.usedWords.add(w.word);
+        return w;
+    }
+    function distractors(word, count){
+        // pick `count` other words (prefer same topic) for distractors
+        const topic = state.config.topic;
+        let sameTopic = topic === 'Any' ? null : VOCAB[topic];
+        // build a big pool of candidate words (word + emoji + meaning)
+        let pool = [];
+        TOPIC_NAMES.forEach(t => pool = pool.concat(VOCAB[t]));
+        // remove the chosen word
+        pool = pool.filter(w => w.word !== word.word);
+        // prefer same-topic if available
+        if (sameTopic && sameTopic.length > count) {
+            const sameExcl = sameTopic.filter(w => w.word !== word.word);
+            if (sameExcl.length >= count) pool = sameExcl;
+        }
+        return shuffle(pool).slice(0, count);
+    }
+
+    function generateQuestion(){
+        const w = pickWord();
+        const diff = chooseDifficulty();
+        const types = ['mc','image2word','word2image','fill','spelling','clue'];
+        // include the more complex types sometimes
+        if (Math.random() < 0.18) types.push('match');
+        if (Math.random() < 0.18) types.push('sentence');
+        const type = pick(types);
+        let q = null;
+        switch(type){
+            case 'mc': q = makeMC(w, diff); break;
+            case 'image2word': if (w.emoji) q = makeImage2Word(w, diff); break;
+            case 'word2image': if (w.emoji) q = makeWord2Image(w, diff); break;
+            case 'fill': q = makeFill(w, diff); break;
+            case 'spelling': q = makeSpelling(w, diff); break;
+            case 'clue': q = makeClue(w, diff); break;
+            case 'match': q = makeMatch(w, diff); break;
+            case 'sentence': q = makeSentence(w, diff); break;
+        }
+        if (!q) q = makeMC(w, diff); // fallback for emoji-less etc.
+        q.diff = diff;
+        q.word = w.word;
+        q.topic = w.topic;
+        return q;
+    }
+
+    function makeMC(w, diff){
+        const distr = distractors(w, 3);
+        const options = shuffle([w, ...distr]);
+        const correctIdx = options.findIndex(o => o.word === w.word);
+        return {
+            type:'mc',
+            typeLabel:'Multiple choice',
+            prompt:`Which word means "<strong>${escapeHtml(w.meaning)}</strong>"?`,
+            options: options.map(o => o.word),
+            correctIdx,
+            explain:w.emoji ? `✓ "${w.word}" ${w.emoji} — ${w.meaning}` : `✓ "${w.word}" — ${w.meaning}`,
+        };
+    }
+    function makeImage2Word(w, diff){
+        const distr = distractors(w, 3);
+        const options = shuffle([w, ...distr]);
+        const correctIdx = options.findIndex(o => o.word === w.word);
+        return {
+            type:'image2word',
+            typeLabel:'Image → word',
+            prompt:`What word matches this picture? <div class="text-7xl text-center my-4">${w.emoji}</div>`,
+            options: options.map(o => o.word),
+            correctIdx,
+            explain:`✓ That picture is "${w.word}". — ${w.meaning}`,
+        };
+    }
+    function makeWord2Image(w, diff){
+        const distr = distractors(w, 3).filter(d => d.emoji);
+        if (distr.length < 3) return null;
+        const options = shuffle([w, ...distr]);
+        const correctIdx = options.findIndex(o => o.word === w.word);
+        return {
+            type:'word2image',
+            typeLabel:'Word → image',
+            prompt:`Which picture matches the word "<strong>${escapeHtml(w.word)}</strong>"?`,
+            options: options.map(o => o.emoji),
+            correctIdx,
+            explain:`✓ "${w.word}" matches that picture. — ${w.meaning}`,
+        };
+    }
+    function makeFill(w, diff){
+        const blank = w.example.replace(new RegExp(w.word, 'i'), '_____');
+        const distr = distractors(w, 3);
+        const options = shuffle([w, ...distr]);
+        const correctIdx = options.findIndex(o => o.word === w.word);
+        return {
+            type:'fill',
+            typeLabel:'Fill in the blank',
+            prompt:`Fill in the blank:<br><div class="text-xl font-semibold my-3 p-3 rounded-xl" style="background:color-mix(in srgb,var(--accent) 8%, transparent);">"${escapeHtml(blank)}"</div>`,
+            options: options.map(o => o.word),
+            correctIdx,
+            explain:`✓ The missing word is "${w.word}". — ${w.meaning}`,
+        };
+    }
+    function makeSpelling(w, diff){
+        // misspell by swapping/removing a letter
+        function misspell(word){
+            if (word.length < 4) return word + 'e';
+            const arr = word.split('');
+            const i = 1 + Math.floor(Math.random()*(arr.length-2));
+            [arr[i], arr[i+1]] = [arr[i+1], arr[i]];
+            return arr.join('');
+        }
+        const correct = w.word;
+        const wrong1 = misspell(correct);
+        const wrong2 = correct.replace(/[aeiou]/, 'a' === correct[0] ? 'e' : 'a');
+        const wrong3 = correct.replace(/e$/, '') + (correct.endsWith('e') ? '' : 'e');
+        const options = shuffle([correct, wrong1, wrong2 !== correct ? wrong2 : 'wrong', wrong3]);
+        const correctIdx = options.indexOf(correct);
+        return {
+            type:'spelling',
+            typeLabel:'Correct spelling',
+            prompt:`Which is the correct spelling of "<strong>${escapeHtml(w.meaning)}</strong>"?`,
+            options,
+            correctIdx,
+            explain:`✓ The correct spelling is "${w.word}".`,
+        };
+    }
+    function makeClue(w, diff){
+        const firstLetter = w.word[0].toUpperCase();
+        const distr = distractors(w, 3).filter(d => d.word[0].toLowerCase() !== w.word[0].toLowerCase())
+                       .concat(distractors(w, 6).filter(d => d.word[0].toLowerCase() !== w.word[0].toLowerCase()));
+        const filtered = distr.filter(d => d.word[0].toLowerCase() !== w.word[0].toLowerCase());
+        const chosen = (filtered.length >= 3 ? filtered : distractors(w, 6)).slice(0,3);
+        const options = shuffle([w, ...chosen]);
+        const correctIdx = options.findIndex(o => o.word === w.word);
+        return {
+            type:'clue',
+            typeLabel:'Guess the word',
+            prompt:`Clues: it starts with "<strong>${firstLetter}</strong>", has <strong>${w.word.length}</strong> letters, and means "<em>${escapeHtml(w.meaning)}</em>".`,
+            options: options.map(o => o.word),
+            correctIdx,
+            explain:`✓ The word is "${w.word}". — ${w.meaning}`,
+        };
+    }
+    function makeMatch(w, diff){
+        // Pick 4 words; user matches word↔meaning
+        const pool = distractors(w, 3);
+        const items = shuffle([w, ...pool]).slice(0,4);
+        return {
+            type:'match',
+            typeLabel:'Match word with meaning',
+            prompt:'Tap a word, then tap its meaning to match them.',
+            matchItems: items,
+            matchWords: shuffle(items.map(i => ({ word:i.word, _id:i.word }))),
+            matchMeans: shuffle(items.map(i => ({ meaning:i.meaning, _id:i.word }))),
+            explain:`Well done — every word is matched to its meaning.`,
+            isMatch:true,
+        };
+    }
+    function makeSentence(w, diff){
+        // build a sentence from the example, scramble
+        const base = w.example.replace(/_/g, w.word).replace(/[.!?]+$/, '').trim();
+        const words = base.split(/\s+/);
+        const scrambled = shuffle(words);
+        return {
+            type:'sentence',
+            typeLabel:'Make a sentence',
+            prompt:'Tap the words in the correct order to make the sentence.',
+            sentenceWords: scrambled.map((wd, i) => ({ word: wd, _id: i })),
+            correctOrder: base, // the target string
+            isSentence:true,
+            explain:`✓ Correct sentence: "${base}". — ${w.meaning}`,
+        };
+    }
+
+    /* =====================================================================
+       QUESTION RENDER
+       ===================================================================== */
+    let answered = false; // guard for current question
+
+    function nextQuestion(fromTeacher){
+        if (state.phase !== 'battle') return;
+        // check end conditions
+        const alive = state.teams.filter(t => !t.eliminated);
+        if (alive.length <= 1) { endGame(); return; }
+        if (state.questionsRemaining <= 0 && state.config.numQ < 999) { endGame(); return; }
+
+        state.questionNum++;
+        if (state.config.numQ < 999) state.questionsRemaining--;
+        $('roundNum').textContent = state.questionNum;
+
+        state.currentQuestion = generateQuestion();
+        state.answeredThisTurn = false;
+        state.attemptsThisTurn = 0;
+        answered = false;
+        renderQuestion();
+        renderTurn();
+        // reset timer
+        stopTimer();
+        if (state.config.timePerQ > 0) {
+            state.timer.remaining = state.config.timePerQ;
+            $('timerText').textContent = state.config.timePerQ + 's';
+            $('timerText').classList.remove('hidden');
+            $('timerToggleLabel').textContent = 'Start Timer';
+        } else {
+            $('timerText').classList.add('hidden');
+            $('timerToggleLabel').textContent = 'No Timer';
+        }
+    }
+
+    function renderQuestion(){
+        const q = state.currentQuestion;
+        const arena = $('questionContent');
+        const diffColors = { easy:'var(--good)', medium:'var(--warning)', hard:'var(--bad)' };
+        const diffLabel = q.diff.charAt(0).toUpperCase() + q.diff.slice(1);
+        const dmg = damageFor(q.diff);
+        let html = `
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="pu-badge" style="--team-color:var(--accent); color:var(--accent); background:color-mix(in srgb,var(--accent) 14%, transparent); border-color:color-mix(in srgb,var(--accent) 35%, transparent);">${q.typeLabel}</span>
+                    <span class="pu-badge" style="--team-color:${diffColors[q.diff]}; color:${diffColors[q.diff]}; background:color-mix(in srgb,${diffColors[q.diff]} 14%, transparent); border-color:color-mix(in srgb,${diffColors[q.diff]} 35%, transparent);">${diffLabel} · ${dmg} dmg</span>
+                    <span class="text-xs" style="color:var(--text-dim);"><i class="fa-solid fa-tag"></i> ${escapeHtml(q.topic)}</span>
+                </div>
+            </div>
+            <div class="text-lg sm:text-xl font-semibold mb-4" style="color:var(--text);">${q.prompt}</div>
+        `;
+        if (q.isMatch) {
+            html += renderMatch(q);
+        } else if (q.isSentence) {
+            html += renderSentence(q);
+        } else {
+            // multiple-choice style
+            const letters = ['A','B','C','D'];
+            html += `<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">` +
+                q.options.map((opt,i) =>
+                    `<button class="ans-btn flex items-center gap-3" onclick="answerMC(${i})" data-idx="${i}">
+                        <span class="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0" style="background:color-mix(in srgb,var(--accent) 15%, transparent); color:var(--accent);">${letters[i]}</span>
+                        <span class="flex-1">${escapeHtml(opt)}</span>
+                    </button>`
+                ).join('') + `</div>`;
+        }
+        html += `<div id="feedback" class="mt-4 min-h-[2rem]"></div>`;
+        arena.innerHTML = html;
+    }
+
+    function renderMatch(q){
+        return `
+            <div class="grid grid-cols-2 gap-4 mt-2">
+                <div>
+                    <div class="text-[11px] font-bold uppercase mb-2" style="color:var(--text-soft);">Words</div>
+                    <div id="matchWords" class="flex flex-col gap-2">
+                        ${q.matchWords.map((w,i)=>`<button class="ans-btn" data-match="${escapeHtml(w._id)}" data-side="word" onclick="selectMatch(this)">${escapeHtml(w.word)}</button>`).join('')}
+                    </div>
+                </div>
+                <div>
+                    <div class="text-[11px] font-bold uppercase mb-2" style="color:var(--text-soft);">Meanings</div>
+                    <div id="matchMeans" class="flex flex-col gap-2">
+                        ${q.matchMeans.map((m,i)=>`<button class="ans-btn" data-match="${escapeHtml(m._id)}" data-side="mean" onclick="selectMatch(this)">${escapeHtml(m.meaning)}</button>`).join('')}
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3 text-xs" style="color:var(--text-dim);">Matched: <span id="matchCount">0</span> / ${q.matchWords.length}</div>`;
+    }
+    function renderSentence(q){
+        return `
+            <div id="sentenceBuild" class="min-h-[56px] p-3 rounded-xl mb-3 flex flex-wrap gap-2 content-start" style="background:color-mix(in srgb,var(--accent) 8%, transparent); border:1px dashed color-mix(in srgb,var(--accent) 30%, transparent);"></div>
+            <div id="sentenceBank" class="flex flex-wrap gap-2">
+                ${q.sentenceWords.map((w,i)=>`<button class="ans-btn" data-sid="${i}" onclick="toggleSentenceWord(this, ${i})">${escapeHtml(w.word)}</button>`).join('')}
+            </div>
+            <button onclick="checkSentence()" class="mt-3 btn" style="background:var(--accent);color:white;border-color:var(--accent);"><i class="fa-solid fa-check mr-1"></i>Check sentence</button>`;
+    }
+
+    /* =====================================================================
+       ANSWER HANDLING
+       ===================================================================== */
+    function answerMC(idx){
+        if (answered) return;
+        const q = state.currentQuestion;
+        if (q.isMatch || q.isSentence) return;
+        answered = true;
+        stopTimer();
+        const buttons = document.querySelectorAll('.ans-btn');
+        buttons.forEach((b,i) => {
+            b.disabled = true;
+            if (i === q.correctIdx) b.classList.add('correct');
+            else if (i === idx && i !== q.correctIdx) b.classList.add('wrong');
+        });
+        const team = activeTeam();
+        if (idx === q.correctIdx) {
+            playSound('correct');
+            showFeedback('correct', q.explain);
+            team.correct++;
+            team.points += damageFor(q.diff) + 5;
+            // earned power-up every 2 correct
+            state.correctStreakByTeam[team.id] = (state.correctStreakByTeam[team.id] || 0) + 1;
+            if (state.correctStreakByTeam[team.id] % 2 === 0) {
+                setTimeout(() => offerPowerUp(team, 'earned'), 700);
+            }
+            // attack prompt
+            setTimeout(() => promptAttackOpponent(), 600);
+        } else {
+            playSound('wrong');
+            showFeedback('wrong', `The correct answer is "${q.options[q.correctIdx]}". ${q.explain}`);
+            team.wrong++;
+            // allow steal
+            setTimeout(() => promptSteal(), 600);
+        }
+        renderFighters();
+    }
+
+    /* MATCH question type */
+    let matchSel = null;
+    let matchedIds = new Set();
+    function selectMatch(btn){
+        if (answered) return;
+        const q = state.currentQuestion;
+        if (!q.isMatch) return;
+        const side = btn.dataset.side;
+        const idm = btn.dataset.match;
+        if (matchedIds.has(idm)) return;
+        if (!matchSel) {
+            matchSel = { side, idm, btn };
+            btn.style.borderColor = 'var(--accent)';
+            btn.style.background = 'color-mix(in srgb, var(--accent) 14%, transparent)';
+        } else {
+            // need opposite side
+            if (matchSel.side === side) {
+                matchSel.btn.style.borderColor = '';
+                matchSel.btn.style.background = '';
+                matchSel = { side, idm, btn };
+                btn.style.borderColor = 'var(--accent)';
+                btn.style.background = 'color-mix(in srgb, var(--accent) 14%, transparent)';
+                return;
+            }
+            // check if match
+            if (matchSel.idm === idm) {
+                // correct match!
+                matchSel.btn.style.background = 'var(--good)';
+                matchSel.btn.style.color = 'white';
+                matchSel.btn.style.borderColor = 'var(--good)';
+                matchSel.btn.disabled = true;
+                btn.style.background = 'var(--good)';
+                btn.style.color = 'white';
+                btn.style.borderColor = 'var(--good)';
+                btn.disabled = true;
+                matchedIds.add(idm);
+                $('matchCount').textContent = matchedIds.size;
+                if (matchedIds.size === q.matchWords.length) {
+                    answered = true;
+                    stopTimer();
+                    const team = activeTeam();
+                    team.correct++;
+                    team.points += damageFor(q.diff) + 5;
+                    state.correctStreakByTeam[team.id] = (state.correctStreakByTeam[team.id] || 0) + 1;
+                    playSound('correct');
+                    showFeedback('correct', q.explain);
+                    if (state.correctStreakByTeam[team.id] % 2 === 0) setTimeout(()=>offerPowerUp(team,'earned'),700);
+                    setTimeout(()=>promptAttackOpponent(), 600);
+                    renderFighters();
+                }
+            } else {
+                // wrong match
+                const a = matchSel.btn, b = btn;
+                a.classList.add('wrong'); b.classList.add('wrong');
+                setTimeout(()=>{ a.classList.remove('wrong'); a.style.borderColor=''; a.style.background='';
+                                  b.classList.remove('wrong'); b.style.borderColor=''; b.style.background=''; }, 500);
+                playSound('wrong');
+                activeTeam().wrong++;
+                renderFighters();
+            }
+            matchSel = null;
+        }
+    }
+
+    /* SENTENCE question type */
+    let sentenceBuilt = [];
+    function toggleSentenceWord(btn, i){
+        if (answered) return;
+        const q = state.currentQuestion;
+        if (!q.isSentence) return;
+        if (btn.dataset.used === '1') {
+            // remove from build
+            btn.dataset.used = '0';
+            btn.style.opacity = '1';
+            sentenceBuilt = sentenceBuilt.filter(x => x.btn !== btn);
+        } else {
+            btn.dataset.used = '1';
+            btn.style.opacity = '0.4';
+            sentenceBuilt.push({ word: q.sentenceWords[i].word, btn });
+        }
+        renderSentenceBuild();
+    }
+    function renderSentenceBuild(){
+        const build = $('sentenceBuild');
+        if (!build) return;
+        build.innerHTML = sentenceBuilt.map(s => `<span class="px-2.5 py-1.5 rounded-lg font-semibold" style="background:var(--card-solid); border:1px solid var(--border-strong);">${escapeHtml(s.word)}</span>`).join('');
+    }
+    function checkSentence(){
+        if (answered) return;
+        const q = state.currentQuestion;
+        const built = sentenceBuilt.map(s => s.word).join(' ');
+        answered = true;
+        stopTimer();
+        const normalized = (s) => s.toLowerCase().replace(/[.,!?]/g,'').replace(/\s+/g,' ').trim();
+        const correct = normalized(built) === normalized(q.correctOrder);
+        const team = activeTeam();
+        if (correct) {
+            playSound('correct');
+            showFeedback('correct', q.explain);
+            team.correct++;
+            team.points += damageFor(q.diff) + 5;
+            state.correctStreakByTeam[team.id] = (state.correctStreakByTeam[team.id] || 0) + 1;
+            if (state.correctStreakByTeam[team.id] % 2 === 0) setTimeout(()=>offerPowerUp(team,'earned'),700);
+            setTimeout(()=>promptAttackOpponent(), 600);
+        } else {
+            playSound('wrong');
+            showFeedback('wrong', `The correct sentence is: "${q.correctOrder}".`);
+            team.wrong++;
+            setTimeout(()=>promptSteal(), 600);
+        }
+        renderFighters();
+    }
+
+    function showFeedback(kind, text){
+        const fb = $('feedback');
+        if (!fb) return;
+        const cls = kind === 'correct' ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                  : 'bg-rose-50 border-rose-300 text-rose-800';
+        const icon = kind === 'correct' ? '<i class="fa-solid fa-circle-check mr-1"></i>CORRECT!'
+                                        : '<i class="fa-solid fa-circle-xmark mr-1"></i>Not quite!';
+        fb.innerHTML = `<div class="rounded-xl border-2 ${cls} px-4 py-3 font-semibold"><div class="font-bold">${icon}</div><div class="text-sm font-normal mt-1">${text}</div></div>`;
+    }
+
+    /* =====================================================================
+       STEAL / ATTACK
+       ===================================================================== */
+    function activeTeam(){ return state.teams[state.activeTeamIdx]; }
+
+    function promptSteal(){
+        const alive = state.teams.filter(t => !t.eliminated && t.id !== activeTeam().id);
+        if (alive.length === 0) { advanceTurn(); return; }
+        openModal({
+            title:'🥷 Steal the question',
+            body:`<p class="text-sm mb-3" style="color:var(--text-soft);">Another team may steal this question! Choose who answers.</p>
+                  <div class="grid grid-cols-1 gap-2">${alive.map(t=>`<button onclick="stealBy('${t.id}')" class="ans-btn flex items-center gap-2"><span class="text-2xl">${t.emoji}</span><span class="font-bold flex-1">${escapeHtml(t.name)}</span></button>`).join('')}</div>`,
+            actions:`<button onclick="closeModal();advanceTurn();" class="btn">No one — skip attack</button>`
+        });
+    }
+    function stealBy(teamId){
+        closeModal();
+        const idx = state.teams.findIndex(t => t.id === teamId);
+        state.activeTeamIdx = idx;
+        renderTurn();
+        // re-enable answering the same question
+        answered = false;
+        const q = state.currentQuestion;
+        if (!q.isMatch && !q.isSentence) {
+            document.querySelectorAll('.ans-btn').forEach(b => { b.disabled = false; b.classList.remove('correct','wrong'); });
+        }
+        showBanner(`🥷 ${activeTeam().emoji} ${activeTeam().name} steals!`, '', activeTeam().color);
+    }
+
+    function promptAttackOpponent(){
+        const alive = state.teams.filter(t => !t.eliminated && t.id !== activeTeam().id);
+        if (alive.length === 0) { advanceTurn(); return; }
+        openModal({
+            title:`${activeTeam().emoji} Attack an opponent`,
+            body:`<p class="text-sm mb-3" style="color:var(--text-soft);">Choose which team to attack for <strong>${damageFor(state.currentQuestion.diff)}</strong> HP${activeTeam().criticalReady ? ' (×2 critical!)' : ''}.</p>
+                  <div class="grid grid-cols-1 gap-2">${alive.map(t=>`<button onclick="attackTeam('${t.id}')" class="ans-btn flex items-center gap-2"><span class="text-2xl">${t.emoji}</span><span class="font-bold flex-1">${escapeHtml(t.name)}</span><span class="text-xs" style="color:var(--text-dim);">${t.hp} HP</span></button>`).join('')}</div>`,
+            actions:`<button onclick="closeModal();advanceTurn();" class="btn">Don't attack</button>`
+        });
+    }
+    function attackTeam(teamId){
+        closeModal();
+        const attacker = activeTeam();
+        const target = state.teams.find(t => t.id === teamId);
+        if (!target) { advanceTurn(); return; }
+        let dmg = damageFor(state.currentQuestion.diff);
+        if (attacker.criticalReady) { dmg *= 2; attacker.criticalReady = false; }
+        // shield?
+        if (target.shieldReady) {
+            target.shieldReady = false;
+            showBanner(`🛡 ${target.emoji} ${target.name}'s shield blocked the attack!`, '', target.color);
+            playSound('powerup');
+            renderFighters();
+            setTimeout(()=>advanceTurn(), 900);
+            return;
+        }
+        target.hp = Math.max(0, target.hp - dmg);
+        attacker.points += dmg;
+        playSound('attack');
+        // animate
+        const targetEl = document.querySelector(`[data-fighter="${target.id}"]`);
+        const attackerEl = document.querySelector(`[data-fighter="${attacker.id}"]`);
+        if (attackerEl) attackerEl.classList.add('attacking');
+        if (targetEl) { targetEl.classList.add('hit'); floatDamage(targetEl, `-${dmg}`, 'var(--bad)'); }
+        if (dmg >= 20) { $('shakeWrap').classList.add('shake'); setTimeout(()=>$('shakeWrap').classList.remove('shake'), 450); }
+        setTimeout(()=>{ if(attackerEl) attackerEl.classList.remove('attacking'); if(targetEl) targetEl.classList.remove('hit'); }, 500);
+        showBanner(`⚔️ ${attacker.emoji} attacks ${target.emoji} for ${dmg}!`, '', attacker.color);
+        // elimination?
+        if (target.hp <= 0 && !target.eliminated) {
+            target.eliminated = true;
+            playSound('eliminate');
+            setTimeout(()=>{ showBanner(`💀 ${target.emoji} ${target.name} is eliminated!`, '', 'var(--bad)'); renderFighters(); }, 800);
+        }
+        renderFighters();
+        setTimeout(()=>advanceTurn(), 950);
+    }
+
+    function advanceTurn(){
+        // check end
+        const alive = state.teams.filter(t => !t.eliminated);
+        if (alive.length <= 1) { setTimeout(()=>endGame(), 400); return; }
+        if (state.questionsRemaining <= 0 && state.config.numQ < 999) { setTimeout(()=>endGame(), 400); return; }
+        // lightning: stay on same team if they have a charge
+        if (activeTeam().lightningCharges > 0 && !state.answeredThisTurn) {
+            activeTeam().lightningCharges--;
+            // nextQuestion without advancing
+            setTimeout(()=>nextQuestion(false), 400);
+            return;
+        }
+        // advance to next alive team
+        let n = state.activeTeamIdx;
+        do { n = (n + 1) % state.teams.length; } while (state.teams[n].eliminated);
+        state.activeTeamIdx = n;
+        setTimeout(()=>nextQuestion(false), 400);
+    }
+
+    /* =====================================================================
+       POWER-UPS
+       ===================================================================== */
+    function offerPowerUp(team, mode){
+        const sampled = shuffle(POWERUPS).slice(0,3);
+        openModal({
+            title:`${team.emoji} ${mode === 'earned' ? 'Power-up earned!' : 'Choose a power-up'}`,
+            body:`<p class="text-sm mb-3" style="color:var(--text-soft);">${team.name} — pick one power-up:</p>
+                  <div class="grid grid-cols-1 gap-2">${sampled.map(p=>`<button onclick="grantPowerUp('${team.id}','${p.id}')" class="ans-btn flex items-center gap-3"><span class="text-3xl">${p.icon}</span><div class="flex-1"><div class="font-bold">${p.name}</div><div class="text-xs font-normal" style="color:var(--text-soft);">${p.desc}</div></div></button>`).join('')}</div>`,
+            actions:`<button onclick="closeModal()" class="btn">Skip</button>`
+        });
+    }
+    function grantPowerUp(teamId, puId){
+        closeModal();
+        const team = state.teams.find(t=>t.id===teamId);
+        if (!team) return;
+        applyPowerUp(team, puId);
+        playSound('powerup');
+        const pu = POWERUPS.find(p=>p.id===puId);
+        showBanner(`${pu.icon} ${team.emoji} ${team.name} — ${pu.name}!`,pu.desc, team.color);
+        renderFighters();
+    }
+    function applyPowerUp(team, puId){
+        switch(puId){
+            case 'critical': team.criticalReady = true; break;
+            case 'shield':    team.shieldReady = true; break;
+            case 'lightning': team.lightningCharges += 1; break;
+            case 'heal':      team.hp = Math.min(team.maxHp, team.hp + 10); floatDamage(document.querySelector(`[data-fighter="${team.id}"]`), '+10', 'var(--good)'); break;
+            case 'steal':
+                // pick a random other alive team
+                const others = state.teams.filter(t=>!t.eliminated && t.id!==team.id);
+                if (others.length) {
+                    const target = pick(others);
+                    if (target.shieldReady) { target.shieldReady = false; showBanner(`🛡 ${target.name}'s shield blocked the steal!`,'','var(--good)'); }
+                    else {
+                        const stolen = Math.min(10, target.hp);
+                        target.hp -= stolen; team.hp = Math.min(team.maxHp, team.hp + stolen);
+                        floatDamage(document.querySelector(`[data-fighter="${target.id}"]`), `-${stolen}`, 'var(--bad)');
+                    }
+                }
+                break;
+        }
+        renderFighters();
+    }
+    function manualPowerUp(){
+        const alive = state.teams.filter(t=>!t.eliminated);
+        if (alive.length===0) return;
+        openModal({
+            title:'Grant a power-up',
+            body:`<div class="grid grid-cols-1 gap-2">${alive.map(t=>`<div class="rounded-xl p-2" style="background:color-mix(in srgb,${t.color} 10%, transparent); border:1px solid color-mix(in srgb,${t.color} 30%, transparent);">
+                        <div class="font-bold text-sm mb-1.5">${t.emoji} ${escapeHtml(t.name)}</div>
+                        <div class="grid grid-cols-5 gap-1.5">${POWERUPS.map(p=>`<button onclick="grantPowerUp('${t.id}','${p.id}')" class="btn flex flex-col items-center justify-center py-2" title="${p.name}"><span class="text-xl">${p.icon}</span><span class="text-[9px] mt-0.5">${p.name.split(' ')[0]}</span></button>`).join('')}</div>
+                    </div>`).join('')}</div>`,
+            actions:`<button onclick="closeModal()" class="btn">Close</button>`
+        });
+    }
+
+    /* =====================================================================
+       FIGHTERS RENDER
+       ===================================================================== */
+    function renderFighters(){
+        const root = $('fightersGrid');
+        if (!root) return;
+        root.innerHTML = '';
+        const sorted = state.teams.slice(); // keep turn order; we highlight active
+        // find ranks by HP
+        const ranked = state.teams.slice().sort((a,b)=> b.hp - a.hp);
+        const rankOf = new Map(ranked.map((t,i)=>[t.id, i+1]));
+        sorted.forEach((t, i) => {
+            const isActive = i === state.activeTeamIdx && !t.eliminated;
+            const hpPct = (t.hp / t.maxHp) * 100;
+            const hpColor = hpPct > 50 ? 'var(--good)' : hpPct > 20 ? 'var(--warning)' : 'var(--bad)';
+            let badges = '';
+            if (t.shieldReady) badges += `<span class="pu-badge" style="--team-color:${t.color};">🛡 Shield</span>`;
+            if (t.criticalReady) badges += `<span class="pu-badge" style="--team-color:${t.color};">🔥 Critical</span>`;
+            if (t.lightningCharges > 0) badges += `<span class="pu-badge" style="--team-color:${t.color};">⚡ ×${t.lightningCharges}</span>`;
+            const acc = (t.correct + t.wrong) > 0 ? Math.round((t.correct / (t.correct + t.wrong)) * 100) : 0;
+
+            const card = document.createElement('div');
+            card.className = 'fighter p-4 sm:p-5 relative' + (isActive ? ' active' : '') + (t.eliminated ? ' eliminated' : '');
+            card.dataset.fighter = t.id;
+            card.style.setProperty('--team-color', t.color);
+            card.innerHTML = `
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="text-3xl sm:text-4xl">${t.emoji}</span>
+                        <div class="min-w-0">
+                            <div class="font-bold text-base sm:text-lg leading-tight truncate" style="color:var(--text);">${escapeHtml(t.name)}</div>
+                            <div class="text-[11px]" style="color:var(--text-soft);">${t.points} pts · ${acc}% acc</div>
+                        </div>
+                    </div>
+                    ${isActive ? `<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full" style="background:var(--accent); color:white;">Turn</span>` : `<span class="text-[10px] font-bold" style="color:var(--text-dim);">#${rankOf.get(t.id)}</span>`}
+                </div>
+                ${badges ? `<div class="flex flex-wrap gap-1 mb-2">${badges}</div>` : ''}
+                <div class="hp-track">
+                    <div class="hp-fill" style="width:${hpPct}%; background: linear-gradient(90deg, ${t.color}, color-mix(in srgb, ${t.color} 70%, white));"></div>
+                </div>
+                <div class="flex items-center justify-between mt-1.5 text-xs">
+                    <span class="font-mono-num font-bold" style="color:${hpColor};">${t.hp} / ${t.maxHp} HP</span>
+                    ${t.eliminated ? '<span class="font-bold" style="color:var(--bad);">💀 Eliminated</span>' : `<span style="color:var(--text-dim);">✓${t.correct} ✗${t.wrong}</span>`}
+                </div>
+            `;
+            root.appendChild(card);
+        });
+    }
+    function renderTurn(){
+        const t = activeTeam();
+        if (!t) return;
+        $('turnTeam').textContent = `${t.emoji} ${t.name}`;
+        $('turnInfo').style.color = t.color;
+        renderFighters();
+    }
+
+    /* =====================================================================
+       TIMER
+       ===================================================================== */
+    function toggleTimer(){
+        if (state.config.timePerQ === 0) return;
+        if (state.timer.running) { stopTimer(); $('timerToggleLabel').textContent = 'Start Timer'; }
+        else { startTimer(); $('timerToggleLabel').textContent = 'Pause'; }
+    }
+    function startTimer(){
+        if (state.config.timePerQ === 0) return;
+        if (state.timer.remaining <= 0) state.timer.remaining = state.config.timePerQ;
+        state.timer.running = true;
+        updateTimerUI();
+        state.timer.interval = setInterval(()=>{
+            state.timer.remaining--;
+            updateTimerUI();
+            if (state.timer.remaining <= 0) {
+                stopTimer();
+                timeUp();
+            }
+        }, 1000);
+    }
+    function updateTimerUI(){
+        $('timerText').textContent = state.timer.remaining + 's';
+    }
+    function stopTimer(){
+        state.timer.running = false;
+        if (state.timer.interval) { clearInterval(state.timer.interval); state.timer.interval = null; }
+    }
+    function timeUp(){
+        if (answered) return;
+        answered = true;
+        const q = state.currentQuestion;
+        if (!q.isMatch && !q.isSentence) {
+            document.querySelectorAll('.ans-btn').forEach((b,i)=>{ b.disabled = true; if (i===q.correctIdx) b.classList.add('correct'); });
+        }
+        playSound('wrong');
+        showFeedback('wrong', `Time's up! The answer is "${q.isMatch||q.isSentence ? q.explain : q.options[q.correctIdx]}".`);
+        activeTeam().wrong++;
+        renderFighters();
+        setTimeout(()=>promptSteal(), 700);
+    }
+
+    /* =====================================================================
+       FLOAT DAMAGE + BANNER + CONFETTI
+       ===================================================================== */
+    function floatDamage(parentEl, text, color){
+        if (!parentEl) return;
+        const el = document.createElement('div');
+        el.className = 'float-dmg';
+        el.textContent = text;
+        el.style.color = color;
+        el.style.left = '50%';
+        el.style.top = '30%';
+        el.style.transform = 'translateX(-50%)';
+        parentEl.appendChild(el);
+        setTimeout(()=>el.remove(), 1400);
+    }
+    function showBanner(title, sub, color){
+        const b = $('banner');
+        b.innerHTML = `<div class="font-display font-bold text-lg sm:text-2xl" style="color:var(--text);">${title}</div>${sub ? `<div class="text-xs sm:text-sm mt-0.5" style="color:var(--text-soft);">${sub}</div>`:''}`;
+        b.style.borderColor = color || 'var(--accent)';
+        b.classList.remove('hidden');
+        b.classList.add('banner');
+        clearTimeout(b._t);
+        b._t = setTimeout(()=>{ b.classList.add('hidden'); b.classList.remove('banner'); }, 2600);
+    }
+    function confetti(canvasId){
+        const canvas = $(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+        const colors = ['#dc2626','#2563eb','#059669','#d97706','#7c3aed','#0891b2'];
+        const parts = [];
+        for (let i=0; i<100; i++) parts.push({ x:canvas.width/2, y:canvas.height/3, vx:(Math.random()-0.5)*10, vy:(Math.random()-0.9)*10, size:Math.random()*6+3, color:colors[Math.floor(Math.random()*colors.length)], life:140 });
+        function frame(){
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            let alive = false;
+            parts.forEach(p=>{ if (p.life>0){ p.x+=p.vx; p.y+=p.vy; p.vy+=0.25; p.life-=1.5; ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill(); alive=true; } });
+            if (alive) requestAnimationFrame(frame);
+        }
+        frame();
+    }
+
+    /* =====================================================================
+       TEACHER CONTROLS
+       ===================================================================== */
+    function revealAnswer(){
+        if (answered) return;
+        const q = state.currentQuestion;
+        answered = true; stopTimer();
+        if (!q.isMatch && !q.isSentence) {
+            document.querySelectorAll('.ans-btn').forEach((b,i)=>{ b.disabled=true; if (i===q.correctIdx) b.classList.add('correct'); });
+        }
+        showFeedback('wrong', `Answer revealed: ${q.isMatch||q.isSentence ? q.explain : '"'+q.options[q.correctIdx]+'" — ' + q.explain}`);
+    }
+    function skipQuestion(){
+        closeModal();
+        advanceTurn();
+    }
+    function manualDamage(){
+        const alive = state.teams.filter(t=>!t.eliminated);
+        openModal({
+            title:'Manually deal damage',
+            body:`<div class="grid grid-cols-1 gap-2">${alive.map(t=>`
+                <div class="rounded-xl p-2.5" style="background:color-mix(in srgb,${t.color} 10%, transparent); border:1px solid color-mix(in srgb,${t.color} 30%, transparent);">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="font-bold text-sm">${t.emoji} ${escapeHtml(t.name)}</span>
+                        <span class="text-xs" style="color:var(--text-dim);">${t.hp} HP</span>
+                    </div>
+                    <div class="grid grid-cols-5 gap-1.5">
+                        ${[5,10,20,-10,-20].map(d=>`<button onclick="dealManual('${t.id}',${d})" class="btn ${d<0?'':''}" style="${d<0?'color:var(--good);':''}">${d>0?'-':'+'}${Math.abs(d)}</button>`).join('')}
+                    </div>
+                </div>`).join('')}</div>`,
+            actions:`<button onclick="closeModal()" class="btn">Close</button>`
+        });
+    }
+    function dealManual(teamId, dmg){
+        const team = state.teams.find(t=>t.id===teamId);
+        if (!team) return;
+        if (dmg < 0) { // heal
+            team.hp = Math.min(team.maxHp, team.hp - dmg);
+            floatDamage(document.querySelector(`[data-fighter="${team.id}"]`), `+${-dmg}`, 'var(--good)');
+            playSound('powerup');
+        } else {
+            if (team.shieldReady) { team.shieldReady = false; showBanner(`🛡 ${team.name}'s shield blocked the damage!`,'','var(--good)'); }
+            else { team.hp = Math.max(0, team.hp - dmg); floatDamage(document.querySelector(`[data-fighter="${team.id}"]`), `-${dmg}`, 'var(--bad)'); playSound('attack'); }
+            if (team.hp <= 0 && !team.eliminated) { team.eliminated = true; playSound('eliminate'); }
+        }
+        renderFighters();
+        const alive = state.teams.filter(t=>!t.eliminated);
+        if (alive.length <= 1) setTimeout(()=>endGame(), 400);
+    }
+    function manualHeal(){
+        const alive = state.teams.filter(t=>!t.eliminated);
+        openModal({
+            title:'Heal a team',
+            body:`<div class="grid grid-cols-1 gap-2">${alive.map(t=>`<button onclick="dealManual('${t.id}',-10);closeModal();" class="ans-btn flex items-center gap-2"><span class="text-2xl">${t.emoji}</span><span class="font-bold flex-1">${escapeHtml(t.name)}</span><span class="text-xs" style="color:var(--text-dim);">${t.hp} HP</span></button>`).join('')}</div>`,
+            actions:`<button onclick="closeModal()" class="btn">Close</button>`
+        });
+    }
+
+    /* =====================================================================
+       VOCAB EDITOR
+       ===================================================================== */
+    let editorTopic = 'Food';
+    function openVocabEditor(){
+        const topics = Object.keys(VOCAB).filter(t => t !== 'Custom' || VOCAB.Custom.length);
+        openModal({
+            title:'📚 Edit Vocabulary',
+            body:`
+                <div class="flex gap-2 mb-3">
+                    <select id="editorTopicSel" onchange="editorTopic=this.value;openVocabEditor()" class="flex-1">
+                        ${Object.keys(VOCAB).map(t=>`<option value="${t}" ${t===editorTopic?'selected':''}>${t}</option>`).join('')}
+                    </select>
+                    <button onclick="addVocabRow()" class="btn flex items-center gap-1.5" style="background:var(--accent);color:white;border-color:var(--accent);"><i class="fa-solid fa-plus"></i>Word</button>
+                </div>
+                <div id="editorList" class="space-y-2 max-h-80 overflow-y-auto pr-1"></div>
+                <p class="text-[11px] mt-3" style="color:var(--text-dim);">Built-in topics (Food, Animals…) are read-only. Edits to "Custom" are saved on this device.</p>
+            `,
+            actions:`<button onclick="closeModal()" class="btn">Close</button>`
+        });
+        renderEditorList();
+    }
+    function renderEditorList(){
+        const list = $('editorList');
+        if (!list) return;
+        const items = VOCAB[editorTopic] || [];
+        if (items.length === 0) { list.innerHTML = `<p class="text-xs italic" style="color:var(--text-dim);">No words yet. Click "+ Word" to add.</p>`; return; }
+        const readonly = editorTopic !== 'Custom';
+        list.innerHTML = items.map((w,i) => `
+            <div class="rounded-xl p-2.5 grid grid-cols-12 gap-1.5" style="background:color-mix(in srgb,var(--accent) 6%, transparent); border:1px solid var(--border);">
+                <input type="text" value="${escapeHtml(w.word)}" ${readonly?'disabled':''} placeholder="word" class="col-span-3 text-sm py-1">
+                <input type="text" value="${escapeHtml(w.emoji||'')}" ${readonly?'disabled':''} placeholder="emoji" class="col-span-2 text-sm py-1 text-center">
+                <input type="text" value="${escapeHtml(w.meaning)}" ${readonly?'disabled':''} placeholder="meaning" class="col-span-4 text-sm py-1">
+                <input type="text" value="${escapeHtml(w.example)}" ${readonly?'disabled':''} placeholder="example" class="col-span-3 text-sm py-1">
+                ${readonly ? '' : `<button onclick="deleteVocabRow(${i})" class="btn" style="padding:0.2rem 0.4rem;color:var(--bad);"><i class="fa-solid fa-trash"></i></button>`}
+            </div>
+        `).join('');
+    }
+    function addVocabRow(){
+        if (editorTopic !== 'Custom') { editorTopic = 'Custom'; }
+        if (!VOCAB.Custom) VOCAB.Custom = [];
+        VOCAB.Custom.push({ word:'', emoji:'', meaning:'', example:'' });
+        renderEditorList();
+        // bind inputs
+        const rows = $('editorList').children;
+        const last = rows[rows.length-1];
+        if (last) {
+            const inputs = last.querySelectorAll('input');
+            [0,1,2,3].forEach(idx => {
+                inputs[idx].addEventListener('input', () => {
+                    const w = VOCAB.Custom[VOCAB.Custom.length-1];
+                    w[['word','emoji','meaning','example'][idx]] = inputs[idx].value;
+                    saveCustomVocab();
+                });
+            });
+        }
+    }
+    function deleteVocabRow(i){
+        if (editorTopic !== 'Custom') return;
+        VOCAB.Custom.splice(i,1);
+        saveCustomVocab();
+        renderEditorList();
+    }
+    function saveCustomVocab(){
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(VOCAB.Custom.filter(w=>w.word.trim()))); } catch(e){}
+    }
+
+    /* =====================================================================
+       END GAME / CHAMPION
+       ===================================================================== */
+    function endGame(){
+        if (state.phase === 'end') return;
+        state.phase = 'end';
+        stopTimer();
+        // determine champion: highest HP, then points
+        const ranked = state.teams.slice().sort((a,b) => (b.hp - a.hp) || (b.points - a.points));
+        const champ = ranked[0];
+        playSound('champion');
+        $('championName').innerHTML = `${champ.emoji} ${escapeHtml(champ.name)} ${champ.emoji}`;
+        $('finalStandings').innerHTML = `
+            <div class="rounded-xl overflow-hidden" style="border:1px solid var(--border);">
+                ${ranked.map((t,i) => {
+                    const acc = (t.correct+t.wrong) > 0 ? Math.round(t.correct/(t.correct+t.wrong)*100) : 0;
+                    return `<div class="flex items-center justify-between px-3 py-2 text-sm" style="background:${i%2?'var(--card-solid)':'var(--card)'}; border-bottom:1px solid var(--border);">
+                        <span class="font-semibold" style="color:var(--text);"><span class="inline-block w-6">${['🥇','🥈','🥉'][i] || (i+1)+'.'}</span> ${t.emoji} ${escapeHtml(t.name)}</span>
+                        <span style="color:var(--text-soft);"><strong style="color:var(--text);">${t.hp}</strong> HP · <strong style="color:var(--text);">${t.points}</strong> pts · ✓${t.correct} · ${acc}%</span>
+                    </div>`;
+                }).join('')}
+            </div>`;
+        $('championScreen').classList.remove('hidden');
+        $('championScreen').classList.add('flex');
+        confetti('championConfetti');
+    }
+    function rematch(){
+        state.teams.forEach(t => { t.hp = t.maxHp; t.eliminated = false; t.powerups = []; t.shieldReady=false; t.criticalReady=false; t.lightningCharges=0; t.correct=0; t.wrong=0; t.points=0; });
+        state.questionNum = 0; state.questionsRemaining = state.config.numQ; state.activeTeamIdx = 0; state.phase='battle';
+        state.usedWords = new Set(); state.correctStreakByTeam = {};
+        $('championScreen').classList.add('hidden');
+        $('championScreen').classList.remove('flex');
+        showBattle();
+        nextQuestion(false);
+        showBanner('⚔️ REMATCH!', '', 'var(--accent)');
+    }
+    function newBattle(){
+        state.phase = 'setup';
+        $('championScreen').classList.add('hidden');
+        $('championScreen').classList.remove('flex');
+        initSetupDraft(2, false);
+        $('teamCountRange').value = 2;
+        $('teamCountValue').textContent = 2;
+        showSetup();
+    }
+    function resetGame(){
+        openModal({
+            title:'Reset the game?',
+            body:`<p class="text-sm" style="color:var(--text-soft);">This ends the current battle and returns to setup.</p>`,
+            actions:`<button onclick="closeModal()" class="btn">Cancel</button>
+                     <button onclick="closeModal();newBattle()" class="btn" style="background:var(--bad);color:white;border-color:var(--bad);">Reset</button>`
+        });
+    }
+
+    /* =====================================================================
+       GENERIC MODAL
+       ===================================================================== */
+    function openModal({title, body, actions}){
+        $('modalRoot').innerHTML = `
+            <div class="fixed inset-0 z-50 backdrop-blur-sm flex items-center justify-center p-4" style="background:color-mix(in srgb,var(--text) 30%, transparent);" onclick="if(event.target===this)closeModal()">
+                <div class="max-w-md w-full p-6 rounded-[1.5rem] shadow-2xl animate-pop max-h-[90vh] overflow-y-auto" style="background:var(--card-solid); border:1px solid var(--border-strong);">
+                    <h3 class="font-display font-bold text-lg mb-3" style="color:var(--text);">${title}</h3>
+                    <div class="mb-5">${body}</div>
+                    <div class="flex justify-end gap-2 flex-wrap">${actions||''}</div>
+                </div>
+            </div>`;
+    }
+    function closeModal(){ $('modalRoot').innerHTML = ''; }
+
+    /* =====================================================================
+       INIT
+       ===================================================================== */
+    window.addEventListener('load', () => {
+        populateTopicDropdown();
+        initSetupDraft(2, false);
+        showSetup();
+    });
+
+    /* expose */
+    window.onTeamCountChange = onTeamCountChange;
+    window.onAnySetupChange = onAnySetupChange;
+    window.pickSetupEmoji = pickSetupEmoji;
+    window.setSetupEmoji = setSetupEmoji;
+    window.startBattle = startBattle;
+    window.toggleSound = toggleSound;
+    window.toggleFullscreen = toggleFullscreen;
+    window.nextQuestion = nextQuestion;
+    window.revealAnswer = revealAnswer;
+    window.manualDamage = manualDamage;
+    window.manualHeal = manualHeal;
+    window.dealManual = dealManual;
+    window.manualPowerUp = manualPowerUp;
+    window.grantPowerUp = grantPowerUp;
+    window.skipQuestion = skipQuestion;
+    window.openVocabEditor = openVocabEditor;
+    window.addVocabRow = addVocabRow;
+    window.deleteVocabRow = deleteVocabRow;
+    window.toggleTimer = toggleTimer;
+    window.answerMC = answerMC;
+    window.selectMatch = selectMatch;
+    window.toggleSentenceWord = toggleSentenceWord;
+    window.checkSentence = checkSentence;
+    window.attackTeam = attackTeam;
+    window.stealBy = stealBy;
+    window.endGame = endGame;
+    window.rematch = rematch;
+    window.newBattle = newBattle;
+    window.resetGame = resetGame;
+    window.closeModal = closeModal;
+    window.editorTopic = editorTopic;
+    window.openVocabEditor = openVocabEditor;
+    </script>
+</body>
+</html>

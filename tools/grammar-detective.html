@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grammar Detective</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --parchment: #faf6ee;
+            --parchment-2: #f3ecdd;
+            --ink: #2b2419;
+            --ink-soft: #5c4f3c;
+            --amber: #d97706;
+            --amber-soft: #fbbf24;
+            --emerald: #059669;
+            --rose: #e11d48;
+            --line: #e5dcc6;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--parchment);
+            background-image:
+                radial-gradient(circle at 10% 12%, rgba(251, 191, 36, 0.18) 0%, transparent 40%),
+                radial-gradient(circle at 92% 10%, rgba(217, 119, 6, 0.12) 0%, transparent 42%),
+                radial-gradient(circle at 75% 95%, rgba(5, 150, 105, 0.10) 0%, transparent 45%);
+            background-attachment: fixed;
+            color: var(--ink);
+        }
+
+        /* Subtle paper grain / ruled lines */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: linear-gradient(rgba(180, 150, 80, 0.05) 1px, transparent 1px);
+            background-size: 100% 30px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .font-display { font-family: 'Fredoka', cursive; }
+        .font-mono-num { font-family: 'JetBrains Mono', monospace; }
+
+        /* Case-file folder card */
+        .case-card {
+            background: linear-gradient(180deg, #fffdf7 0%, #f7f0e0 100%);
+            border: 1px solid var(--line);
+            box-shadow: 0 18px 50px -28px rgba(60, 40, 10, 0.30), inset 0 0 0 2px rgba(255,255,255,0.5);
+            position: relative;
+        }
+        /* Folder tab on top */
+        .case-card::before {
+            content: '';
+            position: absolute;
+            top: -16px; left: 28px;
+            width: 130px; height: 18px;
+            background: linear-gradient(180deg, #f3e4bf 0%, #e8d6a8 100%);
+            border: 1px solid var(--line);
+            border-bottom: none;
+            border-radius: 10px 10px 0 0;
+            z-index: 0;
+        }
+
+        /* Token chips */
+        .token {
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.18s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
+            user-select: none;
+        }
+        .token::after {
+            content: '\f002'; /* fa-search magnifier */
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            top: -10px; right: -8px;
+            font-size: 11px;
+            color: var(--amber);
+            opacity: 0;
+            transform: scale(0.6) rotate(-12deg);
+            transition: all 0.2s ease;
+            pointer-events: none;
+        }
+        .token:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px -8px rgba(217, 119, 6, 0.45);
+            border-color: var(--amber);
+            background: #fff8e8;
+        }
+        .token:hover::after {
+            opacity: 1;
+            transform: scale(1) rotate(-12deg);
+        }
+        .token.disabled { cursor: default; }
+        .token.disabled:hover { transform: none; box-shadow: none; }
+        .token.disabled::after { opacity: 0; }
+
+        .token.correct {
+            background: var(--emerald) !important;
+            color: #fff !important;
+            border-color: var(--emerald);
+            box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.18), 0 10px 25px -10px rgba(5, 150, 105, 0.7);
+            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .token.revealed {
+            background: #fde68a !important;
+            color: var(--ink) !important;
+            border-color: var(--amber);
+            box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
+        }
+        .token.wrong-flash {
+            animation: shake 0.45s ease;
+            background: #fee2e2 !important;
+            border-color: var(--rose) !important;
+            color: var(--rose) !important;
+        }
+
+        @keyframes pop {
+            0%   { transform: scale(1); }
+            40%  { transform: scale(1.18); }
+            70%  { transform: scale(0.96); }
+            100% { transform: scale(1); }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-6px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+
+        /* Floating +points */
+        .float-points {
+            position: absolute;
+            font-weight: 800;
+            pointer-events: none;
+            animation: floatUp 1.1s ease-out forwards;
+            z-index: 30;
+        }
+        @keyframes floatUp {
+            0%   { opacity: 0; transform: translateY(0) scale(0.8); }
+            20%  { opacity: 1; transform: translateY(-8px) scale(1.1); }
+            100% { opacity: 0; transform: translateY(-60px) scale(1); }
+        }
+
+        /* Solved stamp */
+        @keyframes stampIn {
+            0%   { opacity: 0; transform: scale(2.2) rotate(-18deg); }
+            50%  { opacity: 1; transform: scale(0.9) rotate(-10deg); }
+            70%  { transform: scale(1.05) rotate(-12deg); }
+            100% { opacity: 1; transform: scale(1) rotate(-12deg); }
+        }
+        .solved-stamp { animation: stampIn 0.6s cubic-bezier(0.22,1,0.36,1) both; }
+
+        /* Drawer slide */
+        .drawer {
+            transform: translateX(100%);
+            transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .drawer.open { transform: translateX(0); }
+
+        /* Modal pop */
+        @keyframes modalPop {
+            0%   { opacity: 0; transform: scale(0.88) translateY(20px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-pop { animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+        /* Banner / status pulse */
+        @keyframes statusPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(5,150,105,0.4); }
+            50%      { box-shadow: 0 0 0 8px rgba(5,150,105,0); }
+        }
+        .pulse-emerald { animation: statusPulse 1.6s infinite; }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d6c9a6; border-radius: 6px; }
+        ::-webkit-scrollbar-thumb:hover { background: #b8a67e; }
+
+        /* Streak flame wiggle */
+        @keyframes flameWiggle {
+            0%, 100% { transform: rotate(-4deg) scale(1); }
+            50%      { transform: rotate(4deg) scale(1.08); }
+        }
+        .flame-wiggle { animation: flameWiggle 0.5s ease-in-out infinite; }
+    </style>
+</head>
+
+<body class="min-h-screen relative overflow-x-hidden select-none">
+
+    <div class="relative z-10 max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+
+        <!-- ============ HEADER ============ -->
+        <header class="bg-white/70 backdrop-blur-xl border border-amber-200/70 rounded-[1.75rem] shadow-[0_12px_40px_-18px_rgba(120,80,10,0.35)] px-4 sm:px-6 py-4 sm:py-5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3 sm:gap-4">
+                <div class="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center text-2xl sm:text-3xl shadow-inner ring-2 ring-white">
+                    <i class="fa-solid fa-magnifying-glass text-amber-900"></i>
+                </div>
+                <div>
+                    <h1 class="font-display text-2xl sm:text-3xl font-bold text-amber-900 leading-tight tracking-tight">
+                        🕵️ Grammar Detective
+                    </h1>
+                    <p class="text-xs sm:text-sm text-amber-800/70 mt-0.5">
+                        Find the grammar mistakes hidden in each case file.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Team / Solo toggle -->
+                <button id="modeToggle" onclick="toggleMode()" class="px-3 py-2 bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer" title="Toggle Solo / Teams">
+                    <i class="fa-solid fa-user"></i>
+                    <span id="modeLabel">Solo</span>
+                </button>
+                <button onclick="openDrawer()" class="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition active:scale-95 cursor-pointer shadow-md shadow-amber-500/20">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Teacher Panel</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- ============ STATS BAR ============ -->
+        <div class="mt-4 sm:mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <!-- Case # -->
+            <div class="bg-white/80 backdrop-blur border border-amber-200/70 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm">
+                <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-folder-open"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-amber-700/70">Case File</div>
+                    <div class="font-bold text-ink font-mono-num text-lg leading-tight" id="caseNumber">#001</div>
+                </div>
+            </div>
+            <!-- Score -->
+            <div class="bg-white/80 backdrop-blur border border-amber-200/70 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm">
+                <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-star"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-amber-700/70">Score</div>
+                    <div class="font-bold text-lg leading-tight" id="scoreDisplay">0</div>
+                </div>
+            </div>
+            <!-- Streak -->
+            <div class="bg-white/80 backdrop-blur border border-amber-200/70 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm">
+                <div class="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center text-lg" id="streakIconWrap">
+                    <i class="fa-solid fa-fire" id="streakIcon"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-amber-700/70">Streak</div>
+                    <div class="font-bold text-lg leading-tight"><span id="streakDisplay">0</span><span class="text-amber-700/60 text-sm"> / 3</span></div>
+                </div>
+            </div>
+            <!-- Solved / Progress -->
+            <div class="bg-white/80 backdrop-blur border border-amber-200/70 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm">
+                <div class="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-briefcase"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-amber-700/70">Solved</div>
+                    <div class="font-bold text-lg leading-tight" id="solvedDisplay">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Teams scoreboard (hidden in Solo) -->
+        <div id="teamsBar" class="hidden mt-3 grid grid-cols-2 gap-3">
+            <div id="team1Card" class="rounded-2xl px-4 py-3 border border-sky-200 bg-sky-50 flex items-center justify-between transition active-team">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-shield text-sky-600"></i>
+                    <span class="font-bold text-sky-800">Team Blue</span>
+                </div>
+                <span class="font-mono-num font-bold text-sky-700 text-xl" id="team1Score">0</span>
+            </div>
+            <div id="team2Card" class="rounded-2xl px-4 py-3 border border-rose-200 bg-rose-50 flex items-center justify-between transition">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-shield text-rose-600"></i>
+                    <span class="font-bold text-rose-800">Team Red</span>
+                </div>
+                <span class="font-mono-num font-bold text-rose-700 text-xl" id="team2Score">0</span>
+            </div>
+        </div>
+
+        <!-- ============ TIMER BAR (optional) ============ -->
+        <div id="timerBar" class="hidden mt-3 bg-white/80 backdrop-blur border border-amber-200/70 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-3">
+            <span class="text-xs font-bold uppercase tracking-wider text-amber-700/70 flex items-center gap-2"><i class="fa-solid fa-stopwatch text-amber-600"></i> Case Timer</span>
+            <div class="flex-1 mx-3 h-2.5 bg-amber-100 rounded-full overflow-hidden">
+                <div id="timerFill" class="h-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all duration-500 ease-linear" style="width:100%"></div>
+            </div>
+            <span class="font-mono-num font-bold text-ink text-lg" id="timerText">30s</span>
+        </div>
+
+        <!-- ============ CASE CARD ============ -->
+        <main class="mt-6">
+            <div class="case-card rounded-[1.75rem] p-5 sm:p-8 pt-8 sm:pt-10 relative overflow-hidden">
+
+                <!-- solved stamp -->
+                <div id="solvedStamp" class="hidden absolute top-6 right-6 z-20 solved-stamp">
+                    <div class="border-4 border-emerald-600 text-emerald-700 px-4 py-1.5 rounded-xl rotate-12 bg-emerald-50/70">
+                        <div class="font-display font-bold text-2xl tracking-wider">CASE SOLVED</div>
+                    </div>
+                </div>
+
+                <!-- Header row: category badge + difficulty -->
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-5">
+                    <div class="flex items-center gap-2">
+                        <span id="catBadge" class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full border border-amber-200">
+                            <i class="fa-solid fa-tag"></i> Simple Present
+                        </span>
+                        <span id="diffBadge" class="text-[11px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full border border-emerald-200">
+                            Easy
+                        </span>
+                        <span id="yearBadge" class="text-[11px] font-bold uppercase tracking-wider bg-violet-100 text-violet-700 px-2.5 py-1 rounded-full border border-violet-200">
+                            Year 3-4
+                        </span>
+                    </div>
+                    <div class="text-xs text-amber-800/60 font-semibold flex items-center gap-1.5">
+                        <i class="fa-solid fa-magnifying-glass-chart"></i>
+                        Find the mistakes
+                    </div>
+                </div>
+
+                <!-- Instruction -->
+                <p class="text-xs sm:text-sm text-amber-800/70 mb-4 font-medium">
+                    <i class="fa-solid fa-circle-info text-amber-600"></i>
+                    Tap or click the word(s) that are grammatically wrong.
+                </p>
+
+                <!-- Token sentence area -->
+                <div id="sentenceArea" class="flex flex-wrap gap-2 sm:gap-2.5 text-xl sm:text-2xl leading-relaxed font-semibold text-ink py-3 min-h-[80px]">
+                    <!-- tokens injected here -->
+                </div>
+
+                <!-- Feedback box -->
+                <div id="feedbackArea" class="mt-5 min-h-[80px]">
+                    <div id="feedbackIdle" class="rounded-2xl bg-amber-50/60 border border-dashed border-amber-300 px-4 py-4 text-center text-amber-800/70 text-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-lightbulb"></i>
+                        Detective work in progress… examine each word carefully.
+                    </div>
+                    <div id="feedbackCorrect" class="hidden rounded-2xl bg-emerald-50 border border-emerald-300 px-4 py-4">
+                        <div class="flex items-start gap-3">
+                            <i class="fa-solid fa-circle-check text-emerald-600 text-xl mt-0.5"></i>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-bold text-emerald-800 text-sm mb-1" id="correctTitle">Correct!</div>
+                                <div class="text-emerald-800/90 text-sm leading-relaxed" id="correctBody"></div>
+                                <div class="mt-2 text-xs font-bold uppercase tracking-wider text-emerald-700/70 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-gavel"></i> Rule
+                                </div>
+                                <div class="text-emerald-800/90 text-sm leading-relaxed mt-0.5" id="correctRule"></div>
+                                <div class="mt-2 text-xs">
+                                    <span class="text-amber-800/70">Corrected:</span>
+                                    <span class="font-semibold text-ink" id="correctedSentence"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="feedbackWrong" class="hidden rounded-2xl bg-rose-50 border border-rose-300 px-4 py-4 text-center text-rose-800 text-sm">
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> Not quite — keep looking, detective!
+                    </div>
+                    <div id="feedbackSolved" class="hidden rounded-2xl bg-emerald-50 border-2 border-emerald-400 px-4 py-4 text-center">
+                        <div class="font-display font-bold text-xl text-emerald-700 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-medal"></i> Case Solved!
+                        </div>
+                        <div class="text-emerald-800/80 text-sm mt-1">All mistakes found. On to the next case…</div>
+                    </div>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="mt-5 pt-4 border-t border-dashed border-amber-200 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+                    <button onclick="useHint()" id="hintBtn" class="px-4 py-2.5 bg-white hover:bg-amber-50 border border-amber-300 text-amber-800 rounded-xl text-sm font-bold flex items-center gap-2 transition active:scale-95 cursor-pointer">
+                        <i class="fa-solid fa-lightbulb text-amber-500"></i> Hint
+                    </button>
+                    <button onclick="revealAnswers()" class="px-4 py-2.5 bg-white hover:bg-amber-50 border border-amber-300 text-amber-800 rounded-xl text-sm font-bold flex items-center gap-2 transition active:scale-95 cursor-pointer">
+                        <i class="fa-solid fa-eye text-amber-500"></i> Reveal
+                    </button>
+                    <button onclick="skipCase()" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-white rounded-xl text-sm font-bold flex items-center gap-2 transition active:scale-95 cursor-pointer shadow-md shadow-amber-500/20">
+                        <i class="fa-solid fa-forward"></i> Skip Case
+                    </button>
+                    <button onclick="nextCase()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 transition active:scale-95 cursor-pointer shadow-md shadow-emerald-500/20">
+                        <i class="fa-solid fa-folder-plus"></i> New Case
+                    </button>
+                    <button id="nextTeamBtn" onclick="nextTeam()" class="hidden px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 transition active:scale-95 cursor-pointer">
+                        <i class="fa-solid fa-rotate"></i> Next Team
+                    </button>
+                </div>
+
+                <canvas id="confettiCanvas" class="absolute inset-0 pointer-events-none z-0 w-full h-full"></canvas>
+            </div>
+
+            <!-- progress dots -->
+            <div class="mt-4 flex items-center justify-center gap-2 text-xs text-amber-800/60">
+                <i class="fa-solid fa-list-check"></i>
+                <span id="progressText">Mistakes found: 0 / 0</span>
+            </div>
+        </main>
+
+        <footer class="mt-8 text-center text-xs text-amber-800/50 pb-4">
+            Grammar Detective &bull; Inside every sentence hides a clue.
+        </footer>
+    </div>
+
+    <!-- ============ TEACHER PANEL DRAWER ============ -->
+    <div id="drawerBackdrop" class="hidden fixed inset-0 z-40 bg-amber-950/30 backdrop-blur-sm" onclick="closeDrawer()"></div>
+    <aside id="teacherDrawer" class="drawer fixed top-0 right-0 z-50 h-full w-full sm:w-[420px] bg-parchment border-l border-amber-200 shadow-2xl flex flex-col" style="background-color: var(--parchment);">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-amber-200">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-sliders text-amber-600"></i>
+                <h3 class="font-display font-bold text-lg text-amber-900">Teacher Panel</h3>
+            </div>
+            <button onclick="closeDrawer()" class="text-amber-800/60 hover:text-amber-900 p-1 rounded-lg cursor-pointer">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-5 space-y-5">
+            <!-- Filters -->
+            <div class="bg-white/80 border border-amber-200 rounded-2xl p-4 space-y-4">
+                <div class="text-xs font-bold uppercase tracking-wider text-amber-700 flex items-center gap-2">
+                    <i class="fa-solid fa-filter"></i> Case Filters
+                </div>
+
+                <div>
+                    <label class="text-[11px] font-bold uppercase text-amber-800/70 block mb-1.5">Category</label>
+                    <select id="filterCategory" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-sm text-ink outline-none focus:border-amber-500 cursor-pointer">
+                        <option value="Any">Any category</option>
+                        <option>Simple Present</option>
+                        <option>Simple Past</option>
+                        <option>Present Continuous</option>
+                        <option>Subject-Verb Agreement</option>
+                        <option>Articles</option>
+                        <option>Singular & Plural Nouns</option>
+                        <option>Pronouns</option>
+                        <option>Prepositions</option>
+                        <option>Adjectives</option>
+                        <option>Basic Sentence Structure</option>
+                        <option>Capitalisation & Punctuation</option>
+                        <option>Teacher Created</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[11px] font-bold uppercase text-amber-800/70 block mb-1.5">Difficulty</label>
+                        <select id="filterDifficulty" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-sm text-ink outline-none focus:border-amber-500 cursor-pointer">
+                            <option value="Any">Any</option>
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold uppercase text-amber-800/70 block mb-1.5">Year</label>
+                        <select id="filterYear" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-sm text-ink outline-none focus:border-amber-500 cursor-pointer">
+                            <option value="Any">Any</option>
+                            <option value="1">Year 1</option>
+                            <option value="2">Year 2</option>
+                            <option value="3">Year 3</option>
+                            <option value="4">Year 4</option>
+                            <option value="5">Year 5</option>
+                            <option value="6">Year 6</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button onclick="nextCase()" class="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer">
+                    <i class="fa-solid fa-shuffle"></i> Generate Filtered Case
+                </button>
+            </div>
+
+            <!-- Timer toggle -->
+            <div class="bg-white/80 border border-amber-200 rounded-2xl p-4 space-y-3">
+                <div class="text-xs font-bold uppercase tracking-wider text-amber-700 flex items-center gap-2">
+                    <i class="fa-solid fa-stopwatch"></i> Countdown Timer
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-amber-800/80">Enable per-case timer</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="timerToggle" class="sr-only peer" onchange="toggleTimerSetting()">
+                        <div class="w-11 h-6 bg-amber-200 peer-checked:bg-emerald-500 rounded-full transition peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition"></div>
+                    </label>
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold uppercase text-amber-800/70 block mb-1.5">Duration</label>
+                    <div class="grid grid-cols-4 gap-2" id="timerPresets">
+                        <button data-sec="15" onclick="setTimerPreset(15)" class="tp-btn py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-amber-800 hover:bg-amber-50 cursor-pointer">15s</button>
+                        <button data-sec="30" onclick="setTimerPreset(30)" class="tp-btn py-1.5 bg-amber-500 border border-amber-400 text-white rounded-lg text-xs font-bold cursor-pointer">30s</button>
+                        <button data-sec="60" onclick="setTimerPreset(60)" class="tp-btn py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-amber-800 hover:bg-amber-50 cursor-pointer">60s</button>
+                        <button data-sec="90" onclick="setTimerPreset(90)" class="tp-btn py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-amber-800 hover:bg-amber-50 cursor-pointer">90s</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick actions -->
+            <div class="bg-white/80 border border-amber-200 rounded-2xl p-4 space-y-2">
+                <div class="text-xs font-bold uppercase tracking-wider text-amber-700 flex items-center gap-2 mb-1">
+                    <i class="fa-solid fa-bolt"></i> Quick Actions
+                </div>
+                <button onclick="revealAnswers()" class="w-full py-2 bg-white hover:bg-amber-50 border border-amber-300 text-amber-800 rounded-xl text-sm font-bold flex items-center gap-2 transition cursor-pointer">
+                    <i class="fa-solid fa-eye"></i> Reveal Answer
+                </button>
+                <button onclick="skipCase()" class="w-full py-2 bg-white hover:bg-amber-50 border border-amber-300 text-amber-800 rounded-xl text-sm font-bold flex items-center gap-2 transition cursor-pointer">
+                    <i class="fa-solid fa-forward"></i> Skip Case
+                </button>
+                <button onclick="resetScore()" class="w-full py-2 bg-rose-100 hover:bg-rose-200 border border-rose-300 text-rose-700 rounded-xl text-sm font-bold flex items-center gap-2 transition cursor-pointer">
+                    <i class="fa-solid fa-arrows-rotate"></i> Reset Points
+                </button>
+            </div>
+
+            <!-- Create case -->
+            <div class="bg-white/80 border border-amber-200 rounded-2xl p-4 space-y-3">
+                <div class="text-xs font-bold uppercase tracking-wider text-amber-700 flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square"></i> Create Your Own Case
+                </div>
+                <p class="text-[11px] text-amber-800/60">Type a sentence with a mistake, then mark which words are wrong.</p>
+                <button onclick="openCreateModal()" class="w-full py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer">
+                    <i class="fa-solid fa-plus"></i> Open Case Builder
+                </button>
+            </div>
+
+            <!-- Case count -->
+            <div class="text-center text-[11px] text-amber-800/50 pt-2">
+                <span id="caseCountInfo">50 cases available</span> &bull; Teacher cases saved on this device
+            </div>
+        </div>
+    </aside>
+
+    <!-- ============ CREATE CASE MODAL ============ -->
+    <div id="createModal" class="hidden fixed inset-0 z-50 bg-amber-950/50 backdrop-blur-sm items-center justify-center p-4">
+        <div class="bg-parchment border border-amber-200 rounded-[1.5rem] shadow-2xl w-full max-w-lg p-5 sm:p-6 animate-pop" style="background-color: var(--parchment);">
+            <div class="flex items-center justify-between border-b border-amber-200 pb-3 mb-4">
+                <h3 class="font-display font-bold text-lg text-amber-900 flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-violet-600"></i> Case Builder
+                </h3>
+                <button onclick="closeCreateModal()" class="text-amber-800/60 hover:text-amber-900 p-1 cursor-pointer">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="text-[11px] font-bold uppercase text-amber-800/70 block mb-1.5">Sentence with a mistake</label>
+                    <textarea id="createText" rows="3" placeholder="e.g. She go to school every day." class="w-full bg-white border border-amber-300 focus:border-amber-500 rounded-xl p-3 text-sm text-ink outline-none resize-none" oninput="renderCreateTokens()"></textarea>
+                    <p class="text-[11px] text-amber-800/60 mt-1">Type the wrong sentence, then click the words below to mark them as mistakes.</p>
+                </div>
+
+                <div>
+                    <label class="text-[11px] font-bold uppercase text-amber-800/70 block mb-1.5">Preview — click to mark mistakes</label>
+                    <div id="createTokens" class="flex flex-wrap gap-2 bg-white border border-amber-200 rounded-xl p-3 min-h-[70px] text-base font-semibold text-ink"></div>
+                </div>
+
+                <div id="createCorrections" class="space-y-2"></div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="text-[11px] font-bold uppercase text-amber-800/70 block mb-1.5">Category</label>
+                        <select id="createCategory" class="w-full bg-white border border-amber-300 rounded-xl px-2 py-1.5 text-xs text-ink outline-none cursor-pointer">
+                            <option>Simple Present</option>
+                            <option>Simple Past</option>
+                            <option>Present Continuous</option>
+                            <option>Subject-Verb Agreement</option>
+                            <option>Articles</option>
+                            <option>Singular & Plural Nouns</option>
+                            <option>Pronouns</option>
+                            <option>Prepositions</option>
+                            <option>Adjectives</option>
+                            <option>Basic Sentence Structure</option>
+                            <option>Capitalisation & Punctuation</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold uppercase text-amber-800/70 block mb-1.5">Difficulty</label>
+                        <select id="createDifficulty" class="w-full bg-white border border-amber-300 rounded-xl px-2 py-1.5 text-xs text-ink outline-none cursor-pointer">
+                            <option value="easy">Easy</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold uppercase text-amber-800/70 block mb-1.5">Year</label>
+                        <select id="createYear" class="w-full bg-white border border-amber-300 rounded-xl px-2 py-1.5 text-xs text-ink outline-none cursor-pointer">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4" selected>4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-[11px] font-bold uppercase text-amber-800/70 block mb-1.5">Hint (optional)</label>
+                    <input type="text" id="createHint" placeholder="e.g. Look at who is doing the action." class="w-full bg-white border border-amber-300 focus:border-amber-500 rounded-xl px-3 py-2 text-sm text-ink outline-none">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-5 pt-4 border-t border-amber-200">
+                <button onclick="closeCreateModal()" class="px-4 py-2 bg-white hover:bg-amber-50 border border-amber-300 text-amber-800 text-sm font-semibold rounded-xl cursor-pointer">Cancel</button>
+                <button onclick="saveCustomCase()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl flex items-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Case
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+    /* ======================================================================
+       GRAMMAR DETECTIVE
+       ====================================================================== */
+
+    /* ----------------------------------------------------------------------
+       1. CASE BANK (~50 ready-to-teach cases)
+       tokens: array of { text, mistake?(false), correction?, rule? }
+       Two-space tokens render as a wider gap; punctuation attaches.
+       ---------------------------------------------------------------------- */
+    const CASE_BANK = [
+        /* ===== SIMPLE PRESENT (5) ===== */
+        {
+            category: "Simple Present", difficulty: "easy", year: [3,4],
+            tokens: [
+                { text: "She" }, { text: "go", mistake: true, correction: "goes", rule: "With he/she/it in the simple present, the verb adds -s: go → goes." },
+                { text: "to" }, { text: "school" }, { text: "every" }, { text: "day." }
+            ],
+            hint: "Who is doing the action? It's 'she'."
+        },
+        {
+            category: "Simple Present", difficulty: "easy", year: [3,4],
+            tokens: [
+                { text: "My" }, { text: "cat" }, { text: "drink", mistake: true, correction: "drinks", rule: "'My cat' is he/it — verbs add -s: drink → drinks." },
+                { text: "milk" }, { text: "in" }, { text: "the" }, { text: "morning." }
+            ],
+            hint: "The cat is one animal — he/it."
+        },
+        {
+            category: "Simple Present", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "Tom" }, { text: "and" }, { text: "Anna" }, { text: "plays", mistake: true, correction: "play", rule: "Two people = they — no -s in simple present: plays → play." },
+                { text: "football" }, { text: "on" }, { text: "Sundays." }
+            ],
+            hint: "How many people are in the subject?"
+        },
+        {
+            category: "Simple Present", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "The" }, { text: "sun" }, { text: "rise", mistake: true, correction: "rises", rule: "'The sun' is it — verbs add -s: rise → rises." },
+                { text: "in" }, { text: "the" }, { text: "east." }
+            ],
+            hint: "The sun is one thing (it)."
+        },
+        {
+            category: "Simple Present", difficulty: "hard", year: [5,6],
+            tokens: [
+                { text: "My" }, { text: "friend" }, { text: "have", mistake: true, correction: "has", rule: "'My friend' = he/she — 'have' becomes 'has'." },
+                { text: "a" }, { text: "new" }, { text: "bicycle." }
+            ],
+            hint: "'Friend' counts as one person (he/she)."
+        },
+
+        /* ===== SIMPLE PAST (5) ===== */
+        {
+            category: "Simple Past", difficulty: "easy", year: [3,4],
+            tokens: [
+                { text: "Yesterday" }, { text: "I" }, { text: "walk", mistake: true, correction: "walked", rule: "For a finished action yesterday, regular verbs add -ed: walk → walked." },
+                { text: "to" }, { text: "the" }, { text: "park." }
+            ],
+            hint: "When did it happen?"
+        },
+        {
+            category: "Simple Past", difficulty: "easy", year: [3,4],
+            tokens: [
+                { text: "She" }, { text: "eated", mistake: true, correction: "ate", rule: "'Eat' is irregular — the past form is 'ate', not 'eated'." },
+                { text: "her" }, { text: "lunch" }, { text: "quickly." }
+            ],
+            hint: "'Eat' is an irregular verb."
+        },
+        {
+            category: "Simple Past", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "They" }, { text: "go", mistake: true, correction: "went", rule: "'Go' is irregular — the past form is 'went'." },
+                { text: "to" }, { text: "the" }, { text: "cinema" }, { text: "last" }, { text: "night." }
+            ],
+            hint: "'Go' changes completely in the past."
+        },
+        {
+            category: "Simple Past", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "He" }, { text: "did" }, { text: "not" }, { text: "went", mistake: true, correction: "go", rule: "After 'did not', use the base verb: 'did not go', not 'did not went'." },
+                { text: "to" }, { text: "school." }
+            ],
+            hint: "Look at what comes right before the verb — 'did not...'."
+        },
+        {
+            category: "Simple Past", difficulty: "hard", year: [5,6],
+            tokens: [
+                { text: "I" }, { text: "see", mistake: true, correction: "saw", rule: "'See' is irregular — the past form is 'saw'." },
+                { text: "a" }, { text: "bird" }, { text: "in" }, { text: "the" }, { text: "tree." }
+            ],
+            hint: "'See' is irregular."
+        },
+
+        /* ===== PRESENT CONTINUOUS (4) ===== */
+        {
+            category: "Present Continuous", difficulty: "easy", year: [3,4],
+            tokens: [
+                { text: "She" }, { text: "is" }, { text: "read", mistake: true, correction: "reading", rule: "Present continuous = be + verb-ing: is read → is reading." },
+                { text: "a" }, { text: "book." }
+            ],
+            hint: "An action happening right now needs -ing."
+        },
+        {
+            category: "Present Continuous", difficulty: "easy", year: [3,4],
+            tokens: [
+                { text: "They" }, { text: "are" }, { text: "play", mistake: true, correction: "playing", rule: "be + verb-ing: are play → are playing." },
+                { text: "in" }, { text: "the" }, { text: "garden." }
+            ],
+            hint: "Happening right now? Add -ing."
+        },
+        {
+            category: "Present Continuous", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "The" }, { text: "dog" }, { text: "runing", mistake: true, correction: "is running", rule: "Present continuous needs 'is' + verb-ing, and 'run' doubles the n: is running." },
+                { text: "after" }, { text: "the" }, { text: "ball." }
+            ],
+            hint: "Two things: it's happening now, and the verb form is wrong."
+        },
+        {
+            category: "Present Continuous", difficulty: "hard", year: [5,6],
+            tokens: [
+                { text: "I" }, { text: "am" }, { text: "writeing", mistake: true, correction: "writing", rule: "Drop the silent e before -ing: writeing → writing." },
+                { text: "a" }, { text: "letter." }
+            ],
+            hint: "Drop the silent 'e' first."
+        },
+
+        /* ===== SUBJECT-VERB AGREEMENT (5) ===== */
+        {
+            category: "Subject-Verb Agreement", difficulty: "easy", year: [3,4],
+            tokens: [
+                { text: "The" }, { text: "boys" }, { text: "is", mistake: true, correction: "are", rule: "'The boys' is plural = they — use 'are'." },
+                { text: "happy." }
+            ],
+            hint: "How many boys?"
+        },
+        {
+            category: "Subject-Verb Agreement", difficulty: "easy", year: [3,4],
+            tokens: [
+                { text: "My" }, { text: "sister" }, { text: "are", mistake: true, correction: "is", rule: "'My sister' is one person = she — use 'is'." },
+                { text: "tall." }
+            ],
+            hint: "One sister or many?"
+        },
+        {
+            category: "Subject-Verb Agreement", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "Everyone" }, { text: "are", mistake: true, correction: "is", rule: "'Everyone' is singular — use 'is'." },
+                { text: "here" }, { text: "today." }
+            ],
+            hint: "'Everyone' sounds many, but is grammatically one."
+        },
+        {
+            category: "Subject-Verb Agreement", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "The" }, { text: "team" }, { text: "are", mistake: true, correction: "is", rule: "Collective nouns like 'team' are singular in British classroom grammar — use 'is'." },
+                { text: "winning." }
+            ],
+            hint: "'Team' is one group."
+        },
+        {
+            category: "Subject-Verb Agreement", difficulty: "hard", year: [5,6],
+            tokens: [
+                { text: "Neither" }, { text: "of" }, { text: "the" }, { text: "boys" }, { text: "are", mistake: true, correction: "is", rule: "'Neither' is singular — use 'is'." },
+                { text: "tall" }, { text: "enough." }
+            ],
+            hint: "'Neither' is always singular."
+        },
+
+        /* ===== ARTICLES (5) ===== */
+        {
+            category: "Articles", difficulty: "easy", year: [2,3],
+            tokens: [
+                { text: "I" }, { text: "have" }, { text: "a", mistake: true, correction: "an", rule: "Use 'an' before a vowel sound: a apple → an apple." },
+                { text: "apple." }
+            ],
+            hint: "Listen to the next word — does it start with a vowel sound?"
+        },
+        {
+            category: "Articles", difficulty: "easy", year: [2,3],
+            tokens: [
+                { text: "She" }, { text: "is" }, { text: "a", mistake: true, correction: "an", rule: "'Hour' starts with a silent h — vowel sound → 'an hour'." },
+                { text: "hour" }, { text: "late." }
+            ],
+            hint: "The 'h' is silent — what sound do you actually hear?"
+        },
+        {
+            category: "Articles", difficulty: "medium", year: [3,4],
+            tokens: [
+                { text: "The" }, { text: "sun" }, { text: "is" }, { text: "a", mistake: true, correction: "the", rule: "There is only one sun — use 'the' for unique things." },
+                { text: "star." }
+            ],
+            hint: "Is there more than one sun, or just one?"
+        },
+        {
+            category: "Articles", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "I" }, { text: "play" }, { text: "the", mistake: true, correction: "—", rule: "Don't use 'the' before the names of sports and games: play the football → play football." },
+                { text: "football" }, { text: "every" }, { text: "week." }
+            ],
+            hint: "Sports names don't usually take an article."
+        },
+        {
+            category: "Articles", difficulty: "hard", year: [5,6],
+            tokens: [
+                { text: "She" }, { text: "is" }, { text: "a", mistake: true, correction: "an", rule: "Before 'MBA' we say the letters 'em-bee-ay' — starts with a vowel sound → 'an MBA'." },
+                { text: "MBA" }, { text: "student." }
+            ],
+            hint: "Say the letters out loud — what's the first sound?"
+        },
+
+        /* ===== SINGULAR & PLURAL NOUNS (5) ===== */
+        {
+            category: "Singular & Plural Nouns", difficulty: "easy", year: [2,3],
+            tokens: [
+                { text: "Three" }, { text: "boy", mistake: true, correction: "boys", rule: "After 'three', the noun must be plural: boy → boys." },
+                { text: "are" }, { text: "playing." }
+            ],
+            hint: "How many boys?"
+        },
+        {
+            category: "Singular & Plural Nouns", difficulty: "easy", year: [2,3],
+            tokens: [
+                { text: "I" }, { text: "have" }, { text: "two", mistake: false },
+                { text: "foot", mistake: true, correction: "feet", rule: "'Foot' is irregular — the plural is 'feet'." },
+                { text: "." }
+            ],
+            hint: "Some nouns change in funny ways. Foot → ?"
+        },
+        {
+            category: "Singular & Plural Nouns", difficulty: "medium", year: [3,4],
+            tokens: [
+                { text: "There" }, { text: "are" }, { text: "many", mistake: false },
+                { text: "leafs", mistake: true, correction: "leaves", rule: "Nouns ending in -f change to -ves: leaf → leaves." },
+                { text: "on" }, { text: "the" }, { text: "ground." }
+            ],
+            hint: "Words ending in -f often change to -ves."
+        },
+        {
+            category: "Singular & Plural Nouns", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "The" }, { text: "childs", mistake: true, correction: "children", rule: "'Child' is irregular — the plural is 'children'." },
+                { text: "are" }, { text: "happy." }
+            ],
+            hint: "'Child' is irregular."
+        },
+        {
+            category: "Singular & Plural Nouns", difficulty: "hard", year: [5,6],
+            tokens: [
+                { text: "My" }, { text: "two", mistake: false },
+                { text: "wifes", mistake: true, correction: "wives", rule: "Nouns ending in -f/-fe change to -ves: wife → wives." },
+                { text: "—" }, { text: "just" }, { text: "kidding!" }, { text: "I" }, { text: "mean" }, { text: "knives." }
+            ],
+            hint: "Same -f → -ves rule. (Sorry for the joke!) Actually find the wrong plural."
+        },
+
+        /* ===== PRONOUNS (4) ===== */
+        {
+            category: "Pronouns", difficulty: "easy", year: [3,4],
+            tokens: [
+                { text: "Between" }, { text: "you" }, { text: "and", mistake: false },
+                { text: "I", mistake: true, correction: "me", rule: "After a preposition like 'between', use the object pronoun: between you and me." },
+                { text: "," }, { text: "this" }, { text: "is" }, { text: "a" }, { text: "secret." }
+            ],
+            hint: "After 'between' which form — subject (I) or object (me)?"
+        },
+        {
+            category: "Pronouns", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "Him", mistake: true, correction: "He", rule: "The subject of a sentence uses the subject form: He is..., not Him is..." },
+                { text: "is" }, { text: "my" }, { text: "best" }, { text: "friend." }
+            ],
+            hint: "Who is doing the action — subject or object form?"
+        },
+        {
+            category: "Pronouns", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "Me", mistake: true, correction: "I", rule: "The subject form goes before the verb: I can, not Me can." },
+                { text: "and" }, { text: "Tom" }, { text: "can" }, { text: "help." }
+            ],
+            hint: "Start of sentence — which form?"
+        },
+        {
+            category: "Pronouns", difficulty: "hard", year: [5,6],
+            tokens: [
+                { text: "Sarah" }, { text: "and", mistake: false },
+                { text: "me", mistake: true, correction: "I", rule: "Subject pronouns before a verb → 'Sarah and I went'." },
+                { text: "went" }, { text: "shopping." }
+            ],
+            hint: "Take 'Sarah and' away — would you say 'me went'?"
+        },
+
+        /* ===== PREPOSITIONS (5) ===== */
+        {
+            category: "Prepositions", difficulty: "easy", year: [3,4],
+            tokens: [
+                { text: "The" }, { text: "cat" }, { text: "is" }, { text: "on", mistake: true, correction: "under", rule: "If the cat is below the table, the preposition is 'under'." },
+                { text: "the" }, { text: "table," }, { text: "hiding." }
+            ],
+            hint: "Where is the cat — above or below the table?"
+        },
+        {
+            category: "Prepositions", difficulty: "easy", year: [3,4],
+            tokens: [
+                { text: "I" }, { text: "go" }, { text: "to" }, { text: "school", mistake: false },
+                { text: "in", mistake: true, correction: "on", rule: "We say 'on Monday', 'on Sunday' for days — not 'in'." },
+                { text: "Monday." }
+            ],
+            hint: "Which preposition goes with days of the week?"
+        },
+        {
+            category: "Prepositions", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "She" }, { text: "is" }, { text: "good", mistake: false },
+                { text: "in", mistake: true, correction: "at", rule: "We say 'good at' something — not 'good in'." },
+                { text: "maths." }
+            ],
+            hint: "Which preposition follows 'good'?"
+        },
+        {
+            category: "Prepositions", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "The" }, { text: "book" }, { text: "is", mistake: false },
+                { text: "in", mistake: true, correction: "on", rule: "Things resting on a surface like a table → 'on', not 'in'." },
+                { text: "the" }, { text: "table." }
+            ],
+            hint: "Is the book inside the table, or resting on top?"
+        },
+        {
+            category: "Prepositions", difficulty: "hard", year: [5,6],
+            tokens: [
+                { text: "We" }, { text: "arrived", mistake: false },
+                { text: "to", mistake: true, correction: "at", rule: "'Arrive at' a place/building (arrive at school), 'arrive in' a town/country. Never 'arrive to'." },
+                { text: "the" }, { text: "station." }
+            ],
+            hint: "Arrive + at/in/to — which is correct?"
+        },
+
+        /* ===== ADJECTIVES (4) ===== */
+        {
+            category: "Adjectives", difficulty: "easy", year: [3,4],
+            tokens: [
+                { text: "She" }, { text: "is" }, { text: "more", mistake: true, correction: "—", rule: "Short adjectives use -er, not 'more': more taller → taller." },
+                { text: "taller", mistake: true, correction: "tall", rule: "Don't use both '-er' and 'more' — pick one. 'More taller' → 'taller'." },
+                { text: "than" }, { text: "me." }
+            ],
+            hint: "Two problems here! Find both."
+        },
+        {
+            category: "Adjectives", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "This" }, { text: "is", mistake: false },
+                { text: "gooder", mistake: true, correction: "better", rule: "'Good' is irregular — the comparative is 'better', not 'gooder'." },
+                { text: "than" }, { text: "that." }
+            ],
+            hint: "'Good' is irregular."
+        },
+        {
+            category: "Adjectives", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "He" }, { text: "is" }, { text: "the" },
+                { text: "most", mistake: true, correction: "—", rule: "Short adjectives use -est for superlatives: most tall → tallest." },
+                { text: "tallest", mistake: true, correction: "tall", rule: "Don't use both 'most' and '-est' — pick one." },
+                { text: "in" }, { text: "the" }, { text: "class." }
+            ],
+            hint: "Pick one way to make the superlative, not both."
+        },
+        {
+            category: "Adjectives", difficulty: "hard", year: [5,6],
+            tokens: [
+                { text: "She" }, { text: "is", mistake: false },
+                { text: "more", mistake: true, correction: "—", rule: "Adjectives already ending in -y use -ier/-iest, not 'more': more happy → happier." },
+                { text: "happier", mistake: true, correction: "happy", rule: "Pick one form: 'more happier' → 'happier'." },
+                { text: "today." }
+            ],
+            hint: "Same double-comparative problem."
+        },
+
+        /* ===== BASIC SENTENCE STRUCTURE (3) ===== */
+        {
+            category: "Basic Sentence Structure", difficulty: "easy", year: [2,3],
+            tokens: [
+                { text: "Likes", mistake: true, correction: "She likes", rule: "Every statement needs a subject before the verb: 'Likes apples.' → 'She likes apples.'" },
+                { text: "apples." }
+            ],
+            hint: "Who likes apples? The subject is missing."
+        },
+        {
+            category: "Basic Sentence Structure", difficulty: "medium", year: [4,5],
+            tokens: [
+                { text: "He" }, { text: "plays" },
+                { text: "after", mistake: true, correction: "after school, he plays", rule: "Don't interrupt the verb with a time phrase. Put it at the start or end: 'He plays after school football' → 'After school, he plays football' or 'He plays football after school'." },
+                { text: "school" }, { text: "football." }
+            ],
+            hint: "The time phrase is breaking up the verb and its object."
+        },
+        {
+            category: "Basic Sentence Structure", difficulty: "hard", year: [5,6],
+            tokens: [
+                { text: "Went", mistake: true, correction: "He went", rule: "Every sentence needs a subject before the verb: 'Went to the shop.' → 'He went to the shop.'" },
+                { text: "to" }, { text: "the" }, { text: "shop." }
+            ],
+            hint: "Who went? The subject is missing."
+        },
+
+        /* ===== CAPITALISATION & PUNCTUATION (5) ===== */
+        {
+            category: "Capitalisation & Punctuation", difficulty: "easy", year: [2,3],
+            tokens: [
+                { text: "monday", mistake: true, correction: "Monday", rule: "Days of the week start with a capital letter." },
+                { text: "is" }, { text: "my" }, { text: "favourite" }, { text: "day" }
+            ],
+            hint: "How should a day of the week be written?"
+        },
+        {
+            category: "Capitalisation & Punctuation", difficulty: "easy", year: [2,3],
+            tokens: [
+                { text: "i", mistake: true, correction: "I", rule: "The pronoun 'I' is always a capital letter, anywhere in a sentence." },
+                { text: "love" }, { text: "ice" }, { text: "cream" }
+            ],
+            hint: "What's special about the word 'I'?"
+        },
+        {
+            category: "Capitalisation & Punctuation", difficulty: "medium", year: [3,4],
+            tokens: [
+                { text: "what", mistake: true, correction: "What", rule: "Sentences begin with a capital letter." },
+                { text: "is" }, { text: "your" }, { text: "name", }
+            ],
+            hint: "Look at the very first word."
+        },
+        {
+            category: "Capitalisation & Punctuation", difficulty: "medium", year: [3,4],
+            tokens: [
+                { text: "She" }, { text: "said", mistake: false },
+                { text: "i", mistake: true, correction: "I", rule: "'I' is always a capital, even in reported speech." },
+                { text: "am" }, { text: "tired" }
+            ],
+            hint: "Even mid-sentence, one little word is always capital."
+        },
+        {
+            category: "Capitalisation & Punctuation", difficulty: "hard", year: [5,6],
+            tokens: [
+                { text: "Tom" }, { text: "Sarah", mistake: true, correction: "Sarah,", rule: "When you address someone by name, separate it with a comma: 'Tom, Sarah said...'." },
+                { text: "said" }, { text: "we" }, { text: "should" }, { text: "go." }
+            ],
+            hint: "Tom is being spoken to. What's missing after his name?"
+        }
+    ];
+
+    /* ----------------------------------------------------------------------
+       2. STATE
+       ---------------------------------------------------------------------- */
+    const STORAGE_KEY = 'gd_custom_cases_v1';
+    const MODE_SOLO = 'solo', MODE_TEAMS = 'teams';
+
+    let state = {
+        score: 0,
+        streak: 0,
+        solved: 0,
+        caseNumber: 0,           // increments on each presented case
+        currentCase: null,       // the active case object
+        foundMistakes: new Set(),// indices of correctly-found mistake tokens
+        revealed: false,
+        hintTextShown: false,
+        activeTeam: 1,           // 1 or 2 (teams mode)
+        team1Score: 0,
+        team2Score: 0,
+        mode: MODE_SOLO,
+        filters: { category: 'Any', difficulty: 'Any', year: 'Any' },
+        timer: { enabled: false, seconds: 30, remaining: 0, interval: null }
+    };
+
+    let customCases = [];
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) customCases = JSON.parse(raw);
+    } catch (e) { customCases = []; }
+
+    /* ----------------------------------------------------------------------
+       3. UTILITY
+       ---------------------------------------------------------------------- */
+    function $(id){ return document.getElementById(id); }
+    function pad3(n){ return String(n).padStart(3, '0'); }
+    function mistakeIndices(c){
+        const out = [];
+        (c.tokens || []).forEach((t,i)=> { if (t.mistake) out.push(i); });
+        return out;
+    }
+
+    /* ----------------------------------------------------------------------
+       4. CASE SELECTION (respects filters)
+       ---------------------------------------------------------------------- */
+    function buildPool() {
+        const f = state.filters;
+        const all = CASE_BANK.concat(customCases);
+        return all.filter(c => {
+            if (f.category !== 'Any' && c.category !== f.category) return false;
+            if (f.difficulty !== 'Any' && c.difficulty !== f.difficulty) return false;
+            if (f.year !== 'Any' && !(c.year || []).includes(Number(f.year))) return false;
+            return true;
+        });
+    }
+
+    function nextCase() {
+        if (state.revealed || state.foundMistakes.size === mistakeIndices(state.currentCase || {tokens:[]}).length) {
+            // fine — moving on deliberately
+        }
+        const pool = buildPool();
+        if (pool.length === 0) {
+            // fallback to whole bank if filters too narrow
+            const any = CASE_BANK.concat(customCases);
+            if (any.length === 0) { renderSentence(); return; }
+            state.currentCase = any[Math.floor(Math.random()*any.length)];
+        } else {
+            // avoid repeating the same case back-to-back
+            let candidate;
+            do {
+                candidate = pool[Math.floor(Math.random()*pool.length)];
+            } while (pool.length > 1 && candidate === state.currentCase);
+            state.currentCase = candidate;
+        }
+
+        state.caseNumber++;
+        state.foundMistakes = new Set();
+        state.revealed = false;
+        state.hintTextShown = false;
+        renderSentence();
+        renderStats();
+        startTimerIfNeeded();
+    }
+
+    function skipCase() {
+        state.streak = 0;
+        nextCase();
+    }
+
+    /* ----------------------------------------------------------------------
+       5. RENDER
+       ---------------------------------------------------------------------- */
+    function renderSentence() {
+        const c = state.currentCase;
+        const area = $('sentenceArea');
+        area.innerHTML = '';
+        if (!c) {
+            area.innerHTML = '<div class="text-amber-800/50 text-sm">No case loaded. Click "New Case".</div>';
+            $('progressText').textContent = 'Mistakes found: 0 / 0';
+            return;
+        }
+
+        c.tokens.forEach((tok, i) => {
+            const isSpace = tok.text === ' ' || tok.text === '';
+            if (isSpace) {
+                const sp = document.createElement('span');
+                sp.style.width = '0.5em';
+                area.appendChild(sp);
+                return;
+            }
+            const chip = document.createElement('button');
+            chip.className = 'token px-3 py-1.5 rounded-xl bg-white border border-amber-200 text-ink shadow-sm font-semibold';
+            chip.textContent = tok.text;
+            chip.dataset.index = i;
+
+            const found = state.foundMistakes.has(i);
+            if (found) {
+                chip.classList.add('correct', 'disabled');
+                chip.textContent = tok.correction;
+            } else if (state.revealed && tok.mistake) {
+                chip.classList.add('revealed', 'disabled');
+                chip.textContent = tok.correction;
+            } else if (found || state.revealed) {
+                chip.classList.add('disabled');
+            }
+
+            if (!found && !state.revealed) {
+                chip.onclick = () => handleTokenClick(i, chip);
+            } else {
+                chip.classList.add('disabled');
+            }
+
+            area.appendChild(chip);
+        });
+
+        // progress
+        const total = mistakeIndices(c).length;
+        $('progressText').textContent = `Mistakes found: ${state.foundMistakes.size} / ${total}`;
+
+        // case number + badges
+        $('caseNumber').textContent = '#' + pad3(state.caseNumber);
+        $('catBadge').innerHTML = `<i class="fa-solid fa-tag"></i> ${escapeHtml(c.category)}`;
+        const diffMap = { easy: ['Easy', 'bg-emerald-100 text-emerald-700 border-emerald-200'],
+                          medium: ['Medium', 'bg-amber-100 text-amber-800 border-amber-200'],
+                          hard: ['Hard', 'bg-rose-100 text-rose-700 border-rose-200'] };
+        const [diffLabel, diffCls] = diffMap[c.difficulty] || diffMap.easy;
+        $('diffBadge').textContent = diffLabel;
+        $('diffBadge').className = 'text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ' + diffCls;
+        const years = c.year || [];
+        const yLabel = years.length ? `Year ${Math.min(...years)}-${Math.max(...years)}` : 'Year 1-6';
+        $('yearBadge').textContent = yLabel;
+
+        // feedback idle
+        if (state.foundMistakes.size === 0 && !state.revealed) {
+            setFeedback('idle');
+        }
+
+        $('caseCountInfo').textContent = `${CASE_BANK.length + customCases.length} cases available`;
+    }
+
+    function renderStats() {
+        $('scoreDisplay').textContent = getActiveScore();
+        $('streakDisplay').textContent = state.streak;
+        $('solvedDisplay').textContent = state.solved;
+        // flame styling
+        const icon = $('streakIcon');
+        if (state.streak >= 3) {
+            icon.classList.add('flame-wiggle');
+            icon.style.color = '#ea580c';
+        } else {
+            icon.classList.remove('flame-wiggle');
+            icon.style.color = '';
+        }
+        $('team1Score').textContent = state.team1Score;
+        $('team2Score').textContent = state.team2Score;
+    }
+
+    function setFeedback(kind, payload) {
+        ['feedbackIdle','feedbackCorrect','feedbackWrong','feedbackSolved'].forEach(id => $(id).classList.add('hidden'));
+        if (kind === 'idle') $('feedbackIdle').classList.remove('hidden');
+        else if (kind === 'correct') {
+            $('feedbackCorrect').classList.remove('hidden');
+            $('correctTitle').textContent = payload?.title || 'Correct!';
+            $('correctBody').textContent = payload?.body || '';
+            $('correctRule').textContent = payload?.rule || '';
+            $('correctedSentence').textContent = payload?.corrected || '';
+        }
+        else if (kind === 'wrong') $('feedbackWrong').classList.remove('hidden');
+        else if (kind === 'solved') $('feedbackSolved').classList.remove('hidden');
+    }
+
+    /* ----------------------------------------------------------------------
+       6. INTERACTION
+       ---------------------------------------------------------------------- */
+    function handleTokenClick(index, chip) {
+        if (state.revealed) return;
+        const c = state.currentCase;
+        if (!c) return;
+        const tok = c.tokens[index];
+        const mistakes = mistakeIndices(c);
+
+        if (tok.mistake && !state.foundMistakes.has(index)) {
+            // correct!
+            state.foundMistakes.add(index);
+            const points = { easy: 10, medium: 15, hard: 20 }[c.difficulty] || 10;
+            addPoints(points);
+            state.streak++;
+            floatPoints(chip, `+${points}`);
+            setFeedback('correct', {
+                title: 'Correct!',
+                body: `"${tok.text}" → "${tok.correction}"`,
+                rule: tok.rule || '',
+                corrected: buildCorrectedSentence()
+            });
+            renderSentence();
+            renderStats();
+
+            if (state.foundMistakes.size === mistakes.length) {
+                // case fully solved
+                state.solved++;
+                state.streak = state.streak; // keep streak
+                $('solvedStamp').classList.remove('hidden');
+                setFeedback('solved');
+                confettiBurst();
+                stopTimer();
+                renderStats();
+            }
+        } else {
+            // wrong token
+            chip.classList.add('wrong-flash');
+            setTimeout(() => chip.classList.remove('wrong-flash'), 500);
+            setFeedback('wrong');
+            // small penalty, no streak break (kid-friendly)
+            addPoints(-2);
+            renderStats();
+        }
+    }
+
+    function buildCorrectedSentence() {
+        if (!state.currentCase) return '';
+        return state.currentCase.tokens.map((t,i) => {
+            if (t.text === ' ' ) return ' ';
+            if (t.mistake && (state.foundMistakes.has(i) || state.revealed)) return t.correction;
+            return t.text;
+        }).join(' ').replace(/\s+([.,!?])/g, '$1').replace(/\s+/g, ' ').trim();
+    }
+
+    function useHint() {
+        if (!state.currentCase || state.hintTextShown) return;
+        state.hintTextShown = true;
+        addPoints(-1);
+        const h = state.currentCase.hint || 'Look carefully at each word.';
+        setFeedback('correct', {
+            title: '🔍 Hint',
+            body: h,
+            rule: 'Hinting costs 1 point. Stay sharp!',
+            corrected: ''
+        });
+        renderStats();
+    }
+
+    function revealAnswers() {
+        if (!state.currentCase) return;
+        const c = state.currentCase;
+        const mistakes = mistakeIndices(c);
+        mistakes.forEach(i => state.foundMistakes.add(i));
+        state.revealed = true;
+        state.streak = 0;
+        stopTimer();
+        renderSentence();
+        renderStats();
+        setFeedback('correct', {
+            title: 'Answers Revealed',
+            body: 'Here are all the mistakes in this case.',
+            rule: 'No points are awarded when the answer is revealed.',
+            corrected: buildCorrectedSentence()
+        });
+    }
+
+    function resetScore() {
+        state.score = 0;
+        state.team1Score = 0;
+        state.team2Score = 0;
+        state.streak = 0;
+        state.solved = 0;
+        renderStats();
+    }
+
+    /* ----------------------------------------------------------------------
+       7. POINTS / TEAM MODE
+       ---------------------------------------------------------------------- */
+    function getActiveScore() {
+        if (state.mode === MODE_TEAMS) {
+            return state.activeTeam === 1 ? state.team1Score : state.team2Score;
+        }
+        return state.score;
+    }
+    function setActiveScore(v) {
+        if (state.mode === MODE_TEAMS) {
+            if (state.activeTeam === 1) state.team1Score = v; else state.team2Score = v;
+        } else {
+            state.score = v;
+        }
+    }
+    function addPoints(delta) {
+        if (state.mode === MODE_TEAMS) {
+            if (state.activeTeam === 1) state.team1Score = Math.max(0, state.team1Score + delta);
+            else state.team2Score = Math.max(0, state.team2Score + delta);
+        } else {
+            state.score = Math.max(0, state.score + delta);
+        }
+        renderStats();
+    }
+    function toggleMode() {
+        state.mode = state.mode === MODE_SOLO ? MODE_TEAMS : MODE_SOLO;
+        $('modeLabel').textContent = state.mode === MODE_TEAMS ? 'Teams' : 'Solo';
+        const icon = $('modeToggle').querySelector('i');
+        icon.className = state.mode === MODE_TEAMS ? 'fa-solid fa-users' : 'fa-solid fa-user';
+        $('teamsBar').classList.toggle('hidden', state.mode !== MODE_TEAMS);
+        $('nextTeamBtn').classList.toggle('hidden', state.mode !== MODE_TEAMS);
+        renderStats();
+        updateTeamHighlight();
+    }
+    function nextTeam() {
+        state.activeTeam = state.activeTeam === 1 ? 2 : 1;
+        updateTeamHighlight();
+        renderStats();
+    }
+    function updateTeamHighlight() {
+        const t1 = $('team1Card'), t2 = $('team2Card');
+        t1.classList.toggle('active-team', state.activeTeam === 1);
+        t2.classList.toggle('active-team', state.activeTeam === 2);
+        t1.style.transform = state.activeTeam === 1 ? 'scale(1.02)' : '';
+        t2.style.transform = state.activeTeam === 2 ? 'scale(1.02)' : '';
+    }
+
+    /* ----------------------------------------------------------------------
+       8. TIMER
+       ---------------------------------------------------------------------- */
+    function toggleTimerSetting() {
+        state.timer.enabled = $('timerToggle').checked;
+        $('timerBar').classList.toggle('hidden', !state.timer.enabled);
+        if (state.timer.enabled) startTimerIfNeeded();
+        else stopTimer();
+    }
+    function setTimerPreset(sec) {
+        state.timer.seconds = sec;
+        document.querySelectorAll('.tp-btn').forEach(b => {
+            b.classList.remove('bg-amber-500','border-amber-400','text-white');
+            b.classList.add('bg-white','border-amber-300','text-amber-800','hover:bg-amber-50');
+            if (Number(b.dataset.sec) === sec) {
+                b.classList.add('bg-amber-500','border-amber-400','text-white');
+                b.classList.remove('bg-white','border-amber-300','text-amber-800','hover:bg-amber-50');
+            }
+        });
+        startTimerIfNeeded();
+    }
+    function startTimerIfNeeded() {
+        stopTimer();
+        if (!state.timer.enabled || !state.currentCase) return;
+        state.timer.remaining = state.timer.seconds;
+        updateTimerUI();
+        state.timer.interval = setInterval(() => {
+            state.timer.remaining--;
+            updateTimerUI();
+            if (state.timer.remaining <= 0) {
+                stopTimer();
+                revealAnswers();
+            }
+        }, 1000);
+    }
+    function updateTimerUI() {
+        $('timerText').textContent = state.timer.remaining + 's';
+        const pct = (state.timer.remaining / state.timer.seconds) * 100;
+        $('timerFill').style.width = pct + '%';
+        $('timerFill').className = 'h-full transition-all duration-500 ease-linear ' +
+            (pct < 25 ? 'bg-gradient-to-r from-rose-400 to-rose-500'
+            : 'bg-gradient-to-r from-amber-400 to-emerald-400');
+    }
+    function stopTimer() {
+        if (state.timer.interval) { clearInterval(state.timer.interval); state.timer.interval = null; }
+    }
+
+    /* ----------------------------------------------------------------------
+       9. CONFETTI (light)
+       ---------------------------------------------------------------------- */
+    function confettiBurst() {
+        const canvas = $('confettiCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+        const colors = ['#d97706','#fbbf24','#059669','#e11d48','#7c3aed'];
+        const parts = [];
+        for (let i = 0; i < 70; i++) {
+            parts.push({
+                x: canvas.width/2,
+                y: canvas.height/3,
+                vx: (Math.random()-0.5)*9,
+                vy: (Math.random()-0.9)*9,
+                size: Math.random()*6+3,
+                color: colors[Math.floor(Math.random()*colors.length)],
+                life: 110
+            });
+        }
+        function frame(){
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            let alive = false;
+            parts.forEach(p => {
+                if (p.life > 0) {
+                    p.x += p.vx; p.y += p.vy; p.vy += 0.25; p.life -= 1.5;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+                    ctx.fill();
+                    alive = true;
+                }
+            });
+            if (alive) requestAnimationFrame(frame);
+        }
+        frame();
+    }
+
+    function floatPoints(chip, text) {
+        const rect = chip.getBoundingClientRect();
+        const parent = chip.offsetParent;
+        if (!parent) return;
+        const el = document.createElement('div');
+        el.className = 'float-points';
+        el.textContent = text;
+        el.style.color = '#059669';
+        el.style.left = (chip.offsetLeft + chip.offsetWidth/2 - 12) + 'px';
+        el.style.top = (chip.offsetTop) + 'px';
+        parent.appendChild(el);
+        setTimeout(() => el.remove(), 1200);
+    }
+
+    /* ----------------------------------------------------------------------
+       10. DRAWER + MODAL
+       ---------------------------------------------------------------------- */
+    function openDrawer() {
+        $('drawerBackdrop').classList.remove('hidden');
+        $('teacherDrawer').classList.add('open');
+        // read filter values into state
+        state.filters.category = $('filterCategory').value;
+        state.filters.difficulty = $('filterDifficulty').value;
+        state.filters.year = $('filterYear').value;
+    }
+    function closeDrawer() {
+        $('drawerBackdrop').classList.add('hidden');
+        $('teacherDrawer').classList.remove('open');
+        state.filters.category = $('filterCategory').value;
+        state.filters.difficulty = $('filterDifficulty').value;
+        state.filters.year = $('filterYear').value;
+    }
+
+    // Create-case modal
+    let createTokensArr = []; // {text, mistake, correction, rule}
+
+    function openCreateModal() {
+        $('createModal').classList.remove('hidden');
+        $('createModal').classList.add('flex');
+        $('createText').value = '';
+        $('createHint').value = '';
+        $('createCorrections').innerHTML = '';
+        renderCreateTokens();
+    }
+    function closeCreateModal() {
+        $('createModal').classList.add('hidden');
+        $('createModal').classList.remove('flex');
+    }
+    function renderCreateTokens() {
+        const text = $('createText').value;
+        const container = $('createTokens');
+        container.innerHTML = '';
+        // tokenize: words + punctuation as separate chips
+        const parts = text.match(/[\w']+|[.,!?;:]|\s+/g) || [];
+        createTokensArr = parts.map(p => /^\s+$/.test(p) ? {text:' '} : {text:p, mistake:false, correction:'', rule:''});
+        // filter out pure-spaces for display (we add natural gap)
+        createTokensArr.forEach((t, i) => {
+            if (t.text === ' ') {
+                const sp = document.createElement('span');
+                sp.style.width = '0.4em';
+                container.appendChild(sp);
+                return;
+            }
+            const chip = document.createElement('button');
+            chip.className = 'px-2.5 py-1.5 rounded-lg border shadow-sm font-semibold transition ' +
+                (t.mistake ? 'bg-emerald-500 text-white border-emerald-400' : 'bg-white text-ink border-amber-200 hover:bg-amber-50');
+            chip.textContent = t.text;
+            chip.onclick = () => {
+                t.mistake = !t.mistake;
+                renderCreateTokens();
+                renderCreateCorrections();
+            };
+            container.appendChild(chip);
+        });
+        renderCreateCorrections();
+    }
+    function renderCreateCorrections() {
+        const wrap = $('createCorrections');
+        wrap.innerHTML = '';
+        const mistakes = createTokensArr.filter(t => t.mistake && t.text !== ' ');
+        if (mistakes.length === 0) {
+            wrap.innerHTML = '<p class="text-[11px] text-amber-800/60 italic">Click a word above to mark it as a mistake.</p>';
+            return;
+        }
+        mistakes.forEach((m) => {
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2 bg-white border border-amber-200 rounded-xl p-2';
+            const label = document.createElement('span');
+            label.className = 'px-2 py-1 bg-rose-100 text-rose-700 rounded-md text-xs font-bold line-through';
+            label.textContent = m.text;
+            const arrow = document.createElement('i');
+            arrow.className = 'fa-solid fa-arrow-right text-amber-500 text-xs';
+            const corrInput = document.createElement('input');
+            corrInput.type = 'text';
+            corrInput.placeholder = 'correction';
+            corrInput.value = m.correction || '';
+            corrInput.className = 'flex-1 min-w-0 bg-transparent border-b border-amber-200 px-1 text-sm outline-none focus:border-amber-500';
+            corrInput.addEventListener('input', () => { m.correction = corrInput.value; });
+            const ruleInput = document.createElement('input');
+            ruleInput.type = 'text';
+            ruleInput.placeholder = 'short rule (why)';
+            ruleInput.value = m.rule || '';
+            ruleInput.className = 'flex-[2] min-w-0 bg-transparent border-b border-amber-200 px-1 text-xs outline-none focus:border-amber-500';
+            ruleInput.addEventListener('input', () => { m.rule = ruleInput.value; });
+            row.append(label, arrow, corrInput, ruleInput);
+            wrap.appendChild(row);
+        });
+    }
+    function saveCustomCase() {
+        const text = $('createText').value.trim();
+        if (!text) { alert('Type a sentence first.'); return; }
+        const mistakes = createTokensArr.filter(t => t.mistake && t.text !== ' ');
+        if (mistakes.length === 0) { alert('Mark at least one mistake by clicking a word.'); return; }
+        for (const m of mistakes) {
+            if (!m.correction.trim()) { alert(`Please enter a correction for "${m.text}".`); return; }
+        }
+        const newCase = {
+            category: $('createCategory').value,
+            difficulty: $('createDifficulty').value,
+            year: [Number($('createYear').value)],
+            tokens: createTokensArr.map(t => ({ text: t.text, mistake: t.mistake, correction: t.correction, rule: t.rule })),
+            hint: $('createHint').value.trim() || 'Look carefully at each word.',
+            custom: true
+        };
+        customCases.push(newCase);
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(customCases)); } catch(e){}
+        closeCreateModal();
+        // jump straight into the new case
+        state.currentCase = newCase;
+        state.caseNumber++;
+        state.foundMistakes = new Set();
+        state.revealed = false;
+        renderSentence();
+        renderStats();
+    }
+
+    /* ----------------------------------------------------------------------
+       11. HELPERS
+       ---------------------------------------------------------------------- */
+    function escapeHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    }
+
+    /* ----------------------------------------------------------------------
+       12. WIRE-UP
+       ---------------------------------------------------------------------- */
+    document.addEventListener('change', (e) => {
+        if (e.target.id === 'filterCategory' || e.target.id === 'filterDifficulty' || e.target.id === 'filterYear') {
+            state.filters[e.target.id.replace('filter','').toLowerCase()] = e.target.value;
+        }
+    });
+
+    // initial load
+    window.addEventListener('load', () => {
+        nextCase();
+        renderStats();
+    });
+
+    // expose for inline handlers
+    window.toggleMode = toggleMode;
+    window.nextTeam = nextTeam;
+    window.openDrawer = openDrawer;
+    window.closeDrawer = closeDrawer;
+    window.useHint = useHint;
+    window.revealAnswers = revealAnswers;
+    window.skipCase = skipCase;
+    window.nextCase = nextCase;
+    window.resetScore = resetScore;
+    window.toggleTimerSetting = toggleTimerSetting;
+    window.setTimerPreset = setTimerPreset;
+    window.openCreateModal = openCreateModal;
+    window.closeCreateModal = closeCreateModal;
+    window.renderCreateTokens = renderCreateTokens;
+    window.saveCustomCase = saveCustomCase;
+    window.createTokensArr = createTokensArr;
+    </script>
+</body>
+</html>

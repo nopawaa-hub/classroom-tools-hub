@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classroom Tools Hub</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Fredoka (playful) + Inter (clean) + Poppins (dashboard title) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Fredoka', 'cursive'],
+                        sans: ['Inter', 'sans-serif'],
+                        title: ['Poppins', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Soft cream → lavender classroom backdrop */
+            background-color: #fdfcf8;
+            background-image:
+                radial-gradient(circle at 12% 18%, rgba(186, 230, 253, 0.35) 0%, transparent 45%),
+                radial-gradient(circle at 88% 12%, rgba(254, 215, 170, 0.30) 0%, transparent 42%),
+                radial-gradient(circle at 75% 90%, rgba(221, 214, 254, 0.35) 0%, transparent 45%),
+                radial-gradient(circle at 20% 88%, rgba(254, 240, 138, 0.28) 0%, transparent 42%);
+            background-attachment: fixed;
+        }
+
+        /* Subtle notebook grid overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+            background-size: 28px 28px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ===== Snapshot: live iframe scaled to fit each card ===== */
+        .snapshot-wrap {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+            background: #0f172a;
+            /* height is set by JS so the scaled iframe fits exactly */
+        }
+
+        .snapshot-zoom {
+            position: absolute;
+            inset: 0;
+            transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+            transform-origin: top left;
+            will-change: transform;
+        }
+
+        .snapshot-iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1280px;   /* design width  */
+            height: 800px;   /* design height */
+            border: 0;
+            pointer-events: none; /* hover passes through to the card */
+            transition: filter 0.45s ease;
+            transform-origin: top left;
+            will-change: transform, filter;
+        }
+
+        /* Detailed-description overlay (hidden by default, revealed on hover) */
+        .snapshot-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.25rem;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.55), rgba(15, 23, 42, 0.72));
+            backdrop-filter: blur(3px);
+        }
+
+        /* ===== Card hover: blur snapshot, lift card, dim siblings =====
+           Sibling-dim is driven by :has() on the grid, NOT by hovering
+           the empty grid area. This prevents the "blur repeatedly" flicker
+           that happened when the cursor sat in the gaps / lower grid space
+           (every card was :not(:hover), so all stayed dimmed+blurred and
+           any tiny movement flipped them on/off). Now the dim only engages
+           while the cursor is genuinely on a card. */
+        .tool-card {
+            transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+                        box-shadow 0.45s ease,
+                        opacity 0.4s ease,
+                        filter 0.4s ease;
+        }
+
+        /* Only dim OTHER cards when one card is actually being hovered. */
+        .tools-grid:has(.tool-card:hover) .tool-card:not(:hover) {
+            opacity: 0.5;
+            filter: blur(2.5px);
+            transform: scale(0.97);
+        }
+
+        .tool-card:hover {
+            transform: translateY(-10px);
+        }
+        .tool-card:hover .snapshot-zoom {
+            transform: scale(1.05);
+        }
+        .tool-card:hover .snapshot-iframe {
+            filter: blur(5px) brightness(1.06);
+        }
+        .tool-card:hover .snapshot-overlay {
+            opacity: 1;
+        }
+
+        /* Decorative floating shape */
+        @keyframes floatSoft {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50%      { transform: translateY(-12px) rotate(3deg); }
+        }
+        .float-soft { animation: floatSoft 7s ease-in-out infinite; }
+        .float-soft.delay { animation-delay: -3.5s; }
+
+        /* Tiny entrance for cards */
+        @keyframes riseIn {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        /* 'backwards' fill (not 'both') so the pre-start state is applied
+           during the delay, but the element reverts to base CSS afterward —
+           leaving :hover transform/opacity free to take effect. */
+        .rise-in { animation: riseIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; border: 2px solid #fdfcf8; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+
+<body class="min-h-screen text-slate-700 relative">
+
+    <!-- Floating classroom doodles -->
+    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+        <div class="float-soft absolute top-24 left-[4%] text-5xl opacity-30 select-none">✏️</div>
+        <div class="float-soft delay absolute top-40 right-[6%] text-6xl opacity-25 select-none">📚</div>
+        <div class="float-soft absolute bottom-24 left-[8%] text-5xl opacity-20 select-none">🍎</div>
+        <div class="float-soft delay absolute bottom-32 right-[10%] text-5xl opacity-25 select-none">📐</div>
+    </div>
+
+    <div class="relative z-10">
+
+        <!-- ===================== HEADER ===================== -->
+        <header class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10">
+            <div class="bg-white/70 backdrop-blur-xl border border-white rounded-[2rem] shadow-[0_18px_50px_-20px_rgba(99,102,241,0.25)] px-5 sm:px-8 py-5 sm:py-6 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-3 sm:gap-4">
+                    <div class="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-sky-200 via-violet-200 to-amber-200 flex items-center justify-center shadow-inner ring-2 ring-white">
+                        <i class="fa-solid fa-school text-2xl sm:text-3xl text-slate-700"></i>
+                        <span class="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-amber-300 border-2 border-white flex items-center justify-center text-[11px]">
+                            <i class="fa-solid fa-star text-amber-600"></i>
+                        </span>
+                    </div>
+                    <div>
+                        <h1 class="font-title text-2xl sm:text-3xl font-bold text-slate-800 leading-tight tracking-tight">
+                            Classroom Tools Hub
+                        </h1>
+                        <p class="text-xs sm:text-sm text-slate-500 mt-0.5 flex items-center gap-2">
+                            <span class="hidden sm:inline">Interactive toolkit for the modern class —</span>
+                            <span class="inline-flex items-center gap-1 text-violet-500 font-semibold">
+                                <i class="fa-solid fa-wand-magic-sparkles text-[11px]"></i>
+                                hover a card for details
+                            </span>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <div class="flex items-center gap-2 bg-sky-50 border border-sky-100 text-sky-600 px-3.5 py-2 rounded-xl text-xs font-semibold">
+                        <i class="fa-solid fa-grid-2"></i>
+                        <span>6 Tools</span>
+                    </div>
+                    <div class="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-600 px-3.5 py-2 rounded-xl text-xs font-semibold">
+                        <i class="fa-solid fa-circle text-[7px] animate-pulse"></i>
+                        <span>Live Previews</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ===================== TOOL GRID ===================== -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+            <div class="tools-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+
+                <!-- ===== CARD 1: STEALTH FOCUS TIMER ===== -->
+                <a href="tools/stealth-timer.html"
+                   class="tool-card rise-in group block bg-white rounded-[1.75rem] overflow-hidden border border-slate-100 shadow-[0_12px_40px_-18px_rgba(15,23,42,0.25)] hover:shadow-[0_30px_60px_-22px_rgba(245,158,11,0.45)] ring-1 ring-transparent hover:ring-amber-200/60"
+                   style="animation-delay:0.05s" aria-label="Open Stealth Focus Timer">
+
+                    <!-- Snapshot -->
+                    <div class="snapshot-wrap">
+                        <div class="snapshot-zoom">
+                            <iframe class="snapshot-iframe" src="tools/stealth-timer.html" loading="lazy" title="Stealth Focus Timer preview" scrolling="no"></iframe>
+                        </div>
+                        <div class="snapshot-overlay">
+                            <div class="text-center text-white max-w-xs">
+                                <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-amber-300 bg-amber-400/15 border border-amber-300/30 px-2.5 py-1 rounded-full mb-3">
+                                    <i class="fa-solid fa-circle-info"></i> Details
+                                </span>
+                                <p class="text-[13.5px] leading-relaxed text-slate-100">
+                                    Set a custom duration or pick a quick preset from 1 to 25 minutes. When you start, the countdown vanishes behind a friendly mask and a glowing progress ring shifts from amber to red. A pulsing warning kicks in at the <strong>15% mark</strong>, chimes ring when time's up — peek to reveal the time, toggle sound, or go fullscreen.
+                                </p>
+                            </div>
+                        </div>
+                        <span class="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider bg-white/85 backdrop-blur text-amber-600 px-2.5 py-1 rounded-full shadow-sm">
+                            <i class="fa-solid fa-hourglass-half"></i> Time Management
+                        </span>
+                        <span class="absolute top-3 right-3 z-10 inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-400/90 text-slate-900 px-2 py-1 rounded-full shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-900 animate-pulse"></span> LIVE
+                        </span>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="p-5 sm:p-6">
+                        <div class="flex items-start gap-3.5">
+                            <div class="shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center text-amber-600 text-lg ring-1 ring-amber-100">
+                                <i class="fa-solid fa-hourglass-half"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <h2 class="font-display text-xl font-semibold text-slate-800 leading-tight">Stealth Focus Timer</h2>
+                                <p class="text-[13px] text-slate-500 mt-1 leading-relaxed">
+                                    A countdown timer that hides the numbers while running, so students stay on the task — not the clock.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="mt-5 pt-4 border-t border-dashed border-slate-200 flex items-center justify-between">
+                            <span class="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                                <i class="fa-solid fa-tag text-[10px] text-amber-400"></i> Timer &middot; Focus
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 group-hover:gap-2.5 transition-all">
+                                Open tool <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- ===== CARD 2: RANDOM STUDENT PICKER ===== -->
+                <a href="tools/random-student-picker.html"
+                   class="tool-card rise-in group block bg-white rounded-[1.75rem] overflow-hidden border border-slate-100 shadow-[0_12px_40px_-18px_rgba(15,23,42,0.25)] hover:shadow-[0_30px_60px_-22px_rgba(56,189,248,0.45)] ring-1 ring-transparent hover:ring-sky-200/60"
+                   style="animation-delay:0.15s" aria-label="Open Random Student Picker">
+
+                    <div class="snapshot-wrap">
+                        <div class="snapshot-zoom">
+                            <iframe class="snapshot-iframe" src="tools/random-student-picker.html" loading="lazy" title="Random Student Picker preview" scrolling="no"></iframe>
+                        </div>
+                        <div class="snapshot-overlay">
+                            <div class="text-center text-white max-w-xs">
+                                <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-sky-300 bg-sky-400/15 border border-sky-300/30 px-2.5 py-1 rounded-full mb-3">
+                                    <i class="fa-solid fa-circle-info"></i> Details
+                                </span>
+                                <p class="text-[13.5px] leading-relaxed text-slate-100">
+                                    Type names in one by one or paste an entire list in bulk (up to <strong>50 students</strong>). The colorful wheel spins with tick sounds and lands on a fair, equal-probability winner — celebrated with a confetti pop. Keep the winner in the pool or remove them so everyone gets a turn. Save reusable class groups, shuffle, toggle sound, and go fullscreen.
+                                </p>
+                            </div>
+                        </div>
+                        <span class="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider bg-white/85 backdrop-blur text-sky-600 px-2.5 py-1 rounded-full shadow-sm">
+                            <i class="fa-solid fa-users"></i> Participation
+                        </span>
+                        <span class="absolute top-3 right-3 z-10 inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-400/90 text-slate-900 px-2 py-1 rounded-full shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-900 animate-pulse"></span> LIVE
+                        </span>
+                    </div>
+
+                    <div class="p-5 sm:p-6">
+                        <div class="flex items-start gap-3.5">
+                            <div class="shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-100 to-blue-100 flex items-center justify-center text-sky-600 text-lg ring-1 ring-sky-100">
+                                <i class="fa-solid fa-graduation-cap"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <h2 class="font-display text-xl font-semibold text-slate-800 leading-tight">Random Student Picker</h2>
+                                <p class="text-[13px] text-slate-500 mt-1 leading-relaxed">
+                                    A fair spinning wheel that randomly picks a student from your class list — with confetti for the lucky winner.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="mt-5 pt-4 border-t border-dashed border-slate-200 flex items-center justify-between">
+                            <span class="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                                <i class="fa-solid fa-tag text-[10px] text-sky-400"></i> Spinner &middot; Selection
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 text-xs font-bold text-sky-600 group-hover:gap-2.5 transition-all">
+                                Open tool <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- ===== CARD 3: ASTRO CLASS HQ ===== -->
+                <a href="tools/astro-class-hq.html"
+                   class="tool-card rise-in group block bg-white rounded-[1.75rem] overflow-hidden border border-slate-100 shadow-[0_12px_40px_-18px_rgba(15,23,42,0.25)] hover:shadow-[0_30px_60px_-22px_rgba(139,92,246,0.45)] ring-1 ring-transparent hover:ring-violet-200/60"
+                   style="animation-delay:0.25s" aria-label="Open Astro Class HQ">
+
+                    <div class="snapshot-wrap">
+                        <div class="snapshot-zoom">
+                            <iframe class="snapshot-iframe" src="tools/astro-class-hq.html" loading="lazy" title="Astro Class HQ preview" scrolling="no"></iframe>
+                        </div>
+                        <div class="snapshot-overlay">
+                            <div class="text-center text-white max-w-xs">
+                                <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-violet-300 bg-violet-400/15 border border-violet-300/30 px-2.5 py-1 rounded-full mb-3">
+                                    <i class="fa-solid fa-circle-info"></i> Details
+                                </span>
+                                <p class="text-[13.5px] leading-relaxed text-slate-100">
+                                    Load any quiz from a simple <strong>JSON file</strong> and the mission timer starts counting automatically while students answer and track their score. A built-in microphone sensor measures classroom noise in real time and drives a traffic light — <strong>green</strong> when quiet, <strong>yellow</strong> when chatty, <strong>red</strong> when too loud. Four mission controls in one stellar command center.
+                                </p>
+                            </div>
+                        </div>
+                        <span class="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider bg-white/85 backdrop-blur text-violet-600 px-2.5 py-1 rounded-full shadow-sm">
+                            <i class="fa-solid fa-rocket"></i> Activity Hub
+                        </span>
+                        <span class="absolute top-3 right-3 z-10 inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-400/90 text-slate-900 px-2 py-1 rounded-full shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-900 animate-pulse"></span> LIVE
+                        </span>
+                    </div>
+
+                    <div class="p-5 sm:p-6">
+                        <div class="flex items-start gap-3.5">
+                            <div class="shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-100 to-purple-100 flex items-center justify-center text-violet-600 text-lg ring-1 ring-violet-100">
+                                <i class="fa-solid fa-rocket"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <h2 class="font-display text-xl font-semibold text-slate-800 leading-tight">Astro Class HQ</h2>
+                                <p class="text-[13px] text-slate-500 mt-1 leading-relaxed">
+                                    A space-themed command center combining a quiz engine, mission timer, and a live noise sensor with a traffic light.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="mt-5 pt-4 border-t border-dashed border-slate-200 flex items-center justify-between">
+                            <span class="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                                <i class="fa-solid fa-tag text-[10px] text-violet-400"></i> Quiz &middot; Noise Meter
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 text-xs font-bold text-violet-600 group-hover:gap-2.5 transition-all">
+                                Open tool <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- ===== CARD 4: GRAMMAR DETECTIVE ===== -->
+                <a href="tools/grammar-detective.html"
+                   class="tool-card rise-in group block bg-white rounded-[1.75rem] overflow-hidden border border-slate-100 shadow-[0_12px_40px_-18px_rgba(15,23,42,0.25)] hover:shadow-[0_30px_60px_-22px_rgba(16,185,129,0.45)] ring-1 ring-transparent hover:ring-emerald-200/60"
+                   style="animation-delay:0.35s" aria-label="Open Grammar Detective">
+
+                    <div class="snapshot-wrap">
+                        <div class="snapshot-zoom">
+                            <iframe class="snapshot-iframe" src="tools/grammar-detective.html" loading="lazy" title="Grammar Detective preview" scrolling="no"></iframe>
+                        </div>
+                        <div class="snapshot-overlay">
+                            <div class="text-center text-white max-w-xs">
+                                <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-emerald-300 bg-emerald-400/15 border border-emerald-300/30 px-2.5 py-1 rounded-full mb-3">
+                                    <i class="fa-solid fa-circle-info"></i> Details
+                                </span>
+                                <p class="text-[13.5px] leading-relaxed text-slate-100">
+                                    Students become detectives and click the exact wrong word(s) inside a sentence to solve each grammar case. Ships with <strong>50 ready-to-teach cases</strong> across all 11 grammar categories × 3 difficulties, tagged Year 1–6. Live scoring, streaks, confetti on solve, hint + reveal, optional per-case timer, Solo or two-Team mode — and a Case Builder so teachers can write their own (saved on-device).
+                                </p>
+                            </div>
+                        </div>
+                        <span class="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider bg-white/85 backdrop-blur text-emerald-600 px-2.5 py-1 rounded-full shadow-sm">
+                            <i class="fa-solid fa-magnifying-glass"></i> Grammar
+                        </span>
+                        <span class="absolute top-3 right-3 z-10 inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-400/90 text-slate-900 px-2 py-1 rounded-full shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-900 animate-pulse"></span> LIVE
+                        </span>
+                    </div>
+
+                    <div class="p-5 sm:p-6">
+                        <div class="flex items-start gap-3.5">
+                            <div class="shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center text-emerald-600 text-lg ring-1 ring-emerald-100">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <h2 class="font-display text-xl font-semibold text-slate-800 leading-tight">Grammar Detective</h2>
+                                <p class="text-[13px] text-slate-500 mt-1 leading-relaxed">
+                                    A detective-themed grammar tool where students click the exact mistake in a sentence to solve each case.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="mt-5 pt-4 border-t border-dashed border-slate-200 flex items-center justify-between">
+                            <span class="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                                <i class="fa-solid fa-tag text-[10px] text-emerald-400"></i> Grammar &middot; Detection
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 group-hover:gap-2.5 transition-all">
+                                Open tool <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- ===== CARD 5: CLASSROOM SCOREBOARD ===== -->
+                <a href="tools/classroom-scoreboard.html"
+                   class="tool-card rise-in group block bg-white rounded-[1.75rem] overflow-hidden border border-slate-100 shadow-[0_12px_40px_-18px_rgba(15,23,42,0.25)] hover:shadow-[0_30px_60px_-22px_rgba(217,70,239,0.45)] ring-1 ring-transparent hover:ring-fuchsia-200/60"
+                   style="animation-delay:0.45s" aria-label="Open Classroom Scoreboard">
+
+                    <div class="snapshot-wrap">
+                        <div class="snapshot-zoom">
+                            <iframe class="snapshot-iframe" src="tools/classroom-scoreboard.html" loading="lazy" title="Classroom Scoreboard preview" scrolling="no"></iframe>
+                        </div>
+                        <div class="snapshot-overlay">
+                            <div class="text-center text-white max-w-xs">
+                                <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-fuchsia-300 bg-fuchsia-400/15 border border-fuchsia-300/30 px-2.5 py-1 rounded-full mb-3">
+                                    <i class="fa-solid fa-circle-info"></i> Details
+                                </span>
+                                <p class="text-[13.5px] leading-relaxed text-slate-100">
+                                    Set up <strong>2–8 teams</strong> with custom names, icons and students, then award +1 / +5 / +10 / −1 or custom points in a single tap. Cards reorder live with rank medals (🥇🥈🥉), animated score count-ups, floating deltas and sound. Spin a <strong>random event</strong> (Double Points, Steal, Shield, Mystery…) anytime. Multiple rounds (Vocabulary, Grammar, Speaking…), per-round activity log, undo, reset, dark/light/auto theme — and a podium + confetti winner screen when you end the game.
+                                </p>
+                            </div>
+                        </div>
+                        <span class="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider bg-white/85 backdrop-blur text-fuchsia-600 px-2.5 py-1 rounded-full shadow-sm">
+                            <i class="fa-solid fa-trophy"></i> Teams
+                        </span>
+                        <span class="absolute top-3 right-3 z-10 inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-400/90 text-slate-900 px-2 py-1 rounded-full shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-900 animate-pulse"></span> LIVE
+                        </span>
+                    </div>
+
+                    <div class="p-5 sm:p-6">
+                        <div class="flex items-start gap-3.5">
+                            <div class="shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-fuchsia-100 to-pink-100 flex items-center justify-center text-fuchsia-600 text-lg ring-1 ring-fuchsia-100">
+                                <i class="fa-solid fa-trophy"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <h2 class="font-display text-xl font-semibold text-slate-800 leading-tight">Classroom Scoreboard</h2>
+                                <p class="text-[13px] text-slate-500 mt-1 leading-relaxed">
+                                    Live team points with rank medals, random events, multi-round scoring and a winner podium.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="mt-5 pt-4 border-t border-dashed border-slate-200 flex items-center justify-between">
+                            <span class="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                                <i class="fa-solid fa-tag text-[10px] text-fuchsia-400"></i> Teams &middot; Scoring
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 text-xs font-bold text-fuchsia-600 group-hover:gap-2.5 transition-all">
+                                Open tool <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- ===== CARD 6: VOCABULARY BATTLEFIELD ===== -->
+                <a href="tools/vocabulary-battlefield.html"
+                   class="tool-card rise-in group block bg-white rounded-[1.75rem] overflow-hidden border border-slate-100 shadow-[0_12px_40px_-18px_rgba(15,23,42,0.25)] hover:shadow-[0_30px_60px_-22px_rgba(225,29,72,0.45)] ring-1 ring-transparent hover:ring-rose-200/60"
+                   style="animation-delay:0.55s" aria-label="Open Vocabulary Battlefield">
+
+                    <div class="snapshot-wrap">
+                        <div class="snapshot-zoom">
+                            <iframe class="snapshot-iframe" src="tools/vocabulary-battlefield.html" loading="lazy" title="Vocabulary Battlefield preview" scrolling="no"></iframe>
+                        </div>
+                        <div class="snapshot-overlay">
+                            <div class="text-center text-white max-w-xs">
+                                <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-rose-300 bg-rose-400/15 border border-rose-300/30 px-2.5 py-1 rounded-full mb-3">
+                                    <i class="fa-solid fa-circle-info"></i> Details
+                                </span>
+                                <p class="text-[13.5px] leading-relaxed text-slate-100">
+                                    Two-to-six teams start at 100 HP and battle by answering vocabulary questions across <strong>13 topics</strong> and <strong>8 question types</strong> (multiple choice, image→word, spelling, match-meaning, make-a-sentence, clue-guess…). Correct answers let a team attack an opponent — HP bars shrink, damage numbers float, eliminated teams fade 💀. Earn power-ups every 2 correct (🔥 Critical / 🛡 Shield / ⚡ Lightning / ❤️ Heal / 🎯 Steal). Simple teacher toolbar, fullscreen projector mode, and a champion podium with final stats.
+                                </p>
+                            </div>
+                        </div>
+                        <span class="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider bg-white/85 backdrop-blur text-rose-600 px-2.5 py-1 rounded-full shadow-sm">
+                            <i class="fa-solid fa-shield-halved"></i> Battle
+                        </span>
+                        <span class="absolute top-3 right-3 z-10 inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-400/90 text-slate-900 px-2 py-1 rounded-full shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-900 animate-pulse"></span> LIVE
+                        </span>
+                    </div>
+
+                    <div class="p-5 sm:p-6">
+                        <div class="flex items-start gap-3.5">
+                            <div class="shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-100 to-red-100 flex items-center justify-center text-rose-600 text-lg ring-1 ring-rose-100">
+                                <i class="fa-solid fa-shield-halved"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <h2 class="font-display text-xl font-semibold text-slate-800 leading-tight">Vocabulary Battlefield</h2>
+                                <p class="text-[13px] text-slate-500 mt-1 leading-relaxed">
+                                    Teams duel by answering vocab questions — correct answers attack opponents and drain their HP.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="mt-5 pt-4 border-t border-dashed border-slate-200 flex items-center justify-between">
+                            <span class="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                                <i class="fa-solid fa-tag text-[10px] text-rose-400"></i> Vocabulary &middot; Battle
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 group-hover:gap-2.5 transition-all">
+                                Open tool <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+
+            </div>
+
+            <!-- Helper note -->
+            <p class="text-center text-xs text-slate-400 mt-10 flex items-center justify-center gap-2 flex-wrap">
+                <i class="fa-solid fa-hand-pointer text-slate-300"></i>
+                Tip: each card is a live preview — hover to read the details,
+                <span class="text-slate-500 font-semibold">click anywhere on a card to launch the tool</span>.
+            </p>
+        </main>
+
+        <!-- ===================== FOOTER ===================== -->
+        <footer class="max-w-7xl mx-auto px-4 sm:px-6 pb-8">
+            <div class="border-t border-dashed border-slate-200 pt-6 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-chalkboard text-slate-300"></i>
+                    <span>Classroom Tools Hub &bull; built for everyday teaching</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span>Crafted with</span>
+                    <i class="fa-solid fa-heart text-rose-300"></i>
+                    <span>&amp; Tailwind CSS</span>
+                </div>
+            </div>
+        </footer>
+
+    </div>
+
+    <script>
+        /* ============================================================
+           Responsive iframe scaling:
+           render each tool at a fixed 1280×800 design size, then scale
+           it down so it fits the card width exactly. Re-runs on resize.
+           ============================================================ */
+        const DESIGN_W = 1280;
+        const DESIGN_H = 800;
+
+        function scaleSnapshots() {
+            document.querySelectorAll('.snapshot-wrap').forEach((wrap) => {
+                const w = wrap.clientWidth;
+                if (!w) return;
+                const scale = w / DESIGN_W;
+                const iframe = wrap.querySelector('.snapshot-iframe');
+                if (iframe) {
+                    iframe.style.transform = `scale(${scale})`;
+                }
+                wrap.style.height = (DESIGN_H * scale) + 'px';
+            });
+        }
+
+        window.addEventListener('load', scaleSnapshots);
+        window.addEventListener('resize', scaleSnapshots);
+        // Re-measure after fonts/iframes settle (layout shifts can change width)
+        window.addEventListener('DOMContentLoaded', scaleSnapshots);
+        setTimeout(scaleSnapshots, 400);
+        setTimeout(scaleSnapshots, 1200);
+
+        // Re-scale once each iframe finishes loading (in case its layout
+        // changes the document height and nudges the grid)
+        document.querySelectorAll('.snapshot-iframe').forEach((iframe) => {
+            iframe.addEventListener('load', scaleSnapshots);
+        });
+    </script>
+</body>
+</html>

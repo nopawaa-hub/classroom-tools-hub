@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Astro Class HQ</title>
+  <style>
+    :root {
+      --bg-dark: #050814;
+      --bg-gradient: radial-gradient(circle at 50% 20%, #0d1738 0%, #040711 100%);
+      --card-bg: rgba(15, 23, 48, 0.85);
+      --card-border: #1e2c5a;
+      --astro-white: #ffffff;
+      --astro-blue: #0066ff;
+      --astro-blue-hover: #0052cc;
+      --astro-cyan: #00f0ff;
+      --astro-visor: #02040a;
+      --red-light: #ff2a55;
+      --yellow-light: #ffb700;
+      --green-light: #00e5ff;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+
+    body {
+      background: var(--bg-dark);
+      background-image: var(--bg-gradient);
+      color: var(--astro-white);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Main Grid Layout matching 1-5 wireframe */
+    .app-container {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      grid-template-rows: auto 1fr;
+      grid-template-areas:
+        "left-col header"
+        "left-col main-quiz";
+      gap: 20px;
+      width: 100%;
+      max-width: 1250px;
+      height: 90vh;
+    }
+
+    /* Astro Bot Panel Style */
+    .card {
+      background: var(--card-bg);
+      border: 2px solid var(--card-border);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), inset 0 0 15px rgba(0, 240, 255, 0.03);
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 10%; right: 10%; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--astro-cyan), transparent);
+    }
+
+    .card-title {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--astro-cyan);
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Left Column (Boxes 1, 2, 3) */
+    .left-col {
+      grid-area: left-col;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* 1. Timer */
+    .timer-card { flex: 1; }
+    .timer-display {
+      background: var(--astro-visor);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      font-size: 3rem;
+      font-weight: 800;
+      text-align: center;
+      color: var(--astro-cyan);
+      text-shadow: 0 0 15px rgba(0, 240, 255, 0.7);
+      font-family: monospace;
+      padding: 10px 0;
+      margin: 10px 0;
+    }
+
+    /* 2. Noise Detection */
+    .noise-card { flex: 1; }
+    .meter-container {
+      background: var(--astro-visor);
+      border-radius: 12px;
+      height: 22px;
+      width: 100%;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+      margin: 12px 0;
+      padding: 3px;
+    }
+    .meter-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 8px;
+      background: linear-gradient(90deg, var(--astro-cyan), var(--yellow-light), var(--red-light));
+      transition: width 0.1s ease;
+      box-shadow: 0 0 10px var(--astro-cyan);
+    }
+
+    /* 3. Traffic Light */
+    .traffic-card { flex: 1.2; align-items: center; }
+    .traffic-housing {
+      background: var(--astro-visor);
+      padding: 12px 30px;
+      border-radius: 50px;
+      display: flex;
+      gap: 20px;
+      border: 2px solid var(--card-border);
+      box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.9);
+      margin: 10px 0;
+    }
+    .light-bulb {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #0f162e;
+      opacity: 0.2;
+      transition: all 0.3s ease;
+    }
+    .light-bulb.red.active { background: var(--red-light); opacity: 1; box-shadow: 0 0 25px var(--red-light); }
+    .light-bulb.yellow.active { background: var(--yellow-light); opacity: 1; box-shadow: 0 0 25px var(--yellow-light); }
+    .light-bulb.green.active { background: var(--green-light); opacity: 1; box-shadow: 0 0 25px var(--green-light); }
+
+    /* 5. Header (Top Right) */
+    .header-card {
+      grid-area: header;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 30px;
+    }
+    .quiz-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--astro-white);
+    }
+
+    /* 4. Quiz Interface (Bottom Right) */
+    .quiz-card {
+      grid-area: main-quiz;
+      justify-content: space-between;
+    }
+    .question-box {
+      background: var(--astro-visor);
+      border: 1px solid var(--card-border);
+      padding: 25px;
+      border-radius: 18px;
+      font-size: 1.3rem;
+      line-height: 1.5;
+      margin-top: 10px;
+      margin-bottom: 25px;
+    }
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    /* Buttons */
+    .astro-btn {
+      background: linear-gradient(135deg, var(--astro-blue), #0040b3);
+      color: var(--astro-white);
+      border: none;
+      padding: 12px 20px;
+      border-radius: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0, 102, 255, 0.4);
+      transition: all 0.2s ease;
+    }
+    .astro-btn:hover {
+      background: linear-gradient(135deg, #1a75ff, var(--astro-blue));
+      box-shadow: 0 6px 20px rgba(0, 240, 255, 0.5);
+      transform: translateY(-2px);
+    }
+    .btn-group { display: flex; gap: 8px; justify-content: center; width: 100%; }
+
+    .option-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 2px solid var(--card-border);
+      color: var(--astro-white);
+      padding: 20px;
+      border-radius: 16px;
+      font-size: 1.05rem;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .option-btn:hover {
+      border-color: var(--astro-cyan);
+      background: rgba(0, 240, 255, 0.08);
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+    }
+    .option-btn.correct { background: var(--green-light) !important; color: #000; font-weight: bold; border-color: var(--green-light); box-shadow: 0 0 20px var(--green-light); }
+    .option-btn.wrong { background: var(--red-light) !important; color: #fff; font-weight: bold; border-color: var(--red-light); box-shadow: 0 0 20px var(--red-light); }
+
+    .file-input-wrapper { position: relative; overflow: hidden; display: inline-block; }
+    .file-input-wrapper input[type=file] { position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- LEFT COLUMN -->
+    <div class="left-col">
+      
+      <!-- 1. TIME -->
+      <div class="card timer-card">
+        <div class="card-title">⏱️ 1. Mission Timer</div>
+        <div class="timer-display" id="timer">00:00</div>
+        <div class="btn-group">
+          <button class="astro-btn" onclick="startTimer()">Start</button>
+          <button class="astro-btn" onclick="pauseTimer()">Pause</button>
+          <button class="astro-btn" onclick="resetTimer()">Reset</button>
+        </div>
+      </div>
+
+      <!-- 2. NOISE DETECTION -->
+      <div class="card noise-card">
+        <div class="card-title">🎙️ 2. Audio Sensor</div>
+        <div class="meter-container">
+          <div class="meter-fill" id="volume-bar"></div>
+        </div>
+        <button class="astro-btn" style="width: 100%; margin-top: 5px;" onclick="initAudio()">Activate Mic</button>
+      </div>
+
+      <!-- 3. TRAFFIC LIGHT -->
+      <div class="card traffic-card">
+        <div class="card-title">🚦 3. Noise Traffic Light</div>
+        <div class="traffic-housing">
+          <div class="light-bulb red" id="light-red"></div>
+          <div class="light-bulb yellow" id="light-yellow"></div>
+          <div class="light-bulb green" id="light-green"></div>
+        </div>
+        <p id="traffic-status" style="margin-top: 8px; font-size: 0.85rem; color: var(--astro-cyan);">Sensor Offline</p>
+      </div>
+
+    </div>
+
+    <!-- 5. HEADER (TOP RIGHT) -->
+    <div class="card header-card">
+      <div class="quiz-title" id="quiz-header-title">🤖 Astro Quiz HQ</div>
+      <div class="file-input-wrapper">
+        <button class="astro-btn">📁 Upload Quiz (.JSON)</button>
+        <input type="file" id="quiz-file" accept=".json" onchange="loadQuizFile(event)">
+      </div>
+    </div>
+
+    <!-- 4. QUIZ / ACTIVITY INTERFACE (BOTTOM RIGHT) -->
+    <div class="card quiz-card">
+      <div>
+        <div class="card-title">🚀 4. Activity Interface</div>
+        <div id="quiz-container">
+          <div style="text-align: center; padding: 60px 20px; color: #5a6e9c;">
+            <h2>No Quiz Loaded</h2>
+            <p style="margin-top: 10px; font-size: 0.95rem;">Upload your <code>.json</code> file using the header button to begin the activity.</p>
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--card-border); padding-top: 15px;">
+        <span id="progress-text" style="font-size: 0.9rem; color: var(--astro-cyan);">Status: Ready</span>
+        <span id="score-text" style="font-size: 0.9rem; color: var(--astro-white);">Score: 0</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /* 1. TIMER LOGIC */
+    let timerSeconds = 0;
+    let timerInterval = null;
+
+    function updateTimerDisplay() {
+      const mins = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+      const secs = (timerSeconds % 60).toString().padStart(2, '0');
+      document.getElementById('timer').innerText = `${mins}:${secs}`;
+    }
+
+    function startTimer() {
+      if (!timerInterval) {
+        timerInterval = setInterval(() => {
+          timerSeconds++;
+          updateTimerDisplay();
+        }, 1000);
+      }
+    }
+
+    function pauseTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+
+    function resetTimer() {
+      pauseTimer();
+      timerSeconds = 0;
+      updateTimerDisplay();
+    }
+
+    /* 2 & 3. AUDIO NOISE SENSOR & TRAFFIC LIGHT LOGIC */
+    let audioContext, analyser, microphone;
+
+    async function initAudio() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        microphone = audioContext.createMediaStreamSource(stream);
+        
+        analyser.fftSize = 256;
+        microphone.connect(analyser);
+
+        document.getElementById('traffic-status').innerText = "Status: Active";
+        listenToNoise();
+      } catch (err) {
+        alert("Microphone access is required for noise detection.");
+      }
+    }
+
+    function listenToNoise() {
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      function analyze() {
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        let avgVolume = sum / bufferLength;
+
+        // Visual Meter Bar
+        const meterPercentage = Math.min(100, (avgVolume / 50) * 100);
+        document.getElementById('volume-bar').style.width = meterPercentage + '%';
+
+        // Traffic Light Activation
+        const red = document.getElementById('light-red');
+        const yellow = document.getElementById('light-yellow');
+        const green = document.getElementById('light-green');
+
+        red.classList.remove('active');
+        yellow.classList.remove('active');
+        green.classList.remove('active');
+
+        if (avgVolume < 18) {
+          green.classList.add('active');
+          document.getElementById('traffic-status').innerText = "Status: Quiet Class";
+        } else if (avgVolume >= 18 && avgVolume < 38) {
+          yellow.classList.add('active');
+          document.getElementById('traffic-status').innerText = "Status: Moderate Noise";
+        } else {
+          red.classList.add('active');
+          document.getElementById('traffic-status').innerText = "Status: Too Loud!";
+        }
+
+        requestAnimationFrame(analyze);
+      }
+      analyze();
+    }
+
+    /* 4 & 5. QUIZ ENGINE */
+    let currentQuiz = [];
+    let currentQuestionIndex = 0;
+    let score = 0;
+
+    function loadQuizFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (parsed.title) {
+            document.getElementById('quiz-header-title').innerText = "🤖 " + parsed.title;
+            currentQuiz = parsed.questions;
+          } else {
+            document.getElementById('quiz-header-title').innerText = "🤖 " + file.name.replace('.json','');
+            currentQuiz = parsed;
+          }
+
+          currentQuestionIndex = 0;
+          score = 0;
+          renderQuizQuestion();
+          startTimer();
+        } catch (err) {
+          alert("Invalid quiz JSON format.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function renderQuizQuestion() {
+      const container = document.getElementById('quiz-container');
+      const progress = document.getElementById('progress-text');
+      const scoreDisplay = document.getElementById('score-text');
+
+      if (currentQuestionIndex >= currentQuiz.length) {
+        container.innerHTML = `
+          <div style="text-align: center; padding: 40px 20px;">
+            <h2 style="font-size: 2.2rem; color: var(--astro-cyan);">🎉 Mission Completed!</h2>
+            <p style="margin: 15px 0; font-size: 1.2rem;">Final Score: ${score} / ${currentQuiz.length}</p>
+            <p style="color: #7a8cb8;">Time Elapsed: ${document.getElementById('timer').innerText}</p>
+          </div>
+        `;
+        pauseTimer();
+        return;
+      }
+
+      const q = currentQuiz[currentQuestionIndex];
+      progress.innerText = `Question ${currentQuestionIndex + 1} of ${currentQuiz.length}`;
+      scoreDisplay.innerText = `Score: ${score}`;
+
+      let optionsHTML = q.options.map((opt, idx) => 
+        `<button class="option-btn" onclick="checkAnswer(${idx}, ${q.answer})">${opt}</button>`
+      ).join('');
+
+      container.innerHTML = `
+        <div class="question-box">${q.question}</div>
+        <div class="options-grid">${optionsHTML}</div>
+      `;
+    }
+
+    function checkAnswer(selectedIndex, correctIndex) {
+      const buttons = document.querySelectorAll('.option-btn');
+      buttons.forEach((btn, idx) => {
+        btn.disabled = true;
+        if (idx === correctIndex) btn.classList.add('correct');
+        else if (idx === selectedIndex) btn.classList.add('wrong');
+      });
+
+      if (selectedIndex === correctIndex) score++;
+
+      setTimeout(() => {
+        currentQuestionIndex++;
+        renderQuizQuestion();
+      }, 1200);
+    }
+  </script>
+</body>
+</html>
