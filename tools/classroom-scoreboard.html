@@ -13,6 +13,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
 
+    <!-- Shared Firebase config (Firestore backend, with localStorage fallback) -->
+    <script src="../firebase-config.js"></script>
+
     <style>
         /* ============ THEME VARIABLE SYSTEM ============ */
         :root {
@@ -436,7 +439,13 @@
     /* --- helpers --- */
     function rid(){ return 'r_' + Math.random().toString(36).slice(2,9); }
     function $(id){ return document.getElementById(id); }
-    function save(){ try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){} }
+    function save(){
+        try {
+            state._updatedAt = Date.now();
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch(e){}
+        cloudSaveStateDebounced(); // mirror to Firestore (debounced)
+    }
     function load(){
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
@@ -449,6 +458,51 @@
         return false;
     }
     function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+
+    /* --- Cloud sync (Firestore) with localStorage fallback ---
+       Stores the whole session in scoreboard_sessions/main so the
+       teacher's scoreboard follows them across devices (shared,
+       no-auth dataset per project choice). Last-writer-wins by
+       _updatedAt; localStorage is the instant offline mirror.      */
+    const CS_COLLECTION = 'scoreboard_sessions';
+    const CS_DOC = 'main';
+    const FS_MOD_URL = "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    let _csCloudTimer = null;
+
+    function cloudSaveStateDebounced(){
+        clearTimeout(_csCloudTimer);
+        _csCloudTimer = setTimeout(cloudSaveState, 800);
+    }
+
+    async function cloudSaveState(){
+        try {
+            const db = await window.cthDb();
+            const { doc, setDoc } = await import(FS_MOD_URL);
+            const clone = Object.assign({}, state);
+            clone.timer = Object.assign({}, state.timer, { interval: null }); // strip live handle
+            await setDoc(doc(db, CS_COLLECTION, CS_DOC), { state: clone, updatedAt: state._updatedAt || Date.now() });
+        } catch (err) { /* offline — localStorage already written */ }
+    }
+
+    async function cloudReconcile(){
+        try {
+            const db = await window.cthDb();
+            const { doc, getDoc } = await import(FS_MOD_URL);
+            const snap = await getDoc(doc(db, CS_COLLECTION, CS_DOC));
+            if (!snap.exists()) return false;
+            const data = snap.data();
+            if (!data || !data.state) return false;
+            const cloudTs = data.updatedAt || (data.state && data.state._updatedAt) || 0;
+            const localTs = state._updatedAt || 0;
+            if (cloudTs < localTs) return false; // local edits are newer
+            state = Object.assign(state, data.state);
+            if (!state.timer) state.timer = { enabled:false, seconds:30, remaining:0, interval:null };
+            state.timer.interval = null; // never restore a live handle
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+            if (state.teams && state.teams.length >= 2) showGame(); else showSetup();
+            return true;
+        } catch (err) { return false; }
+    }
 
     /* --- theme --- */
     function applyTheme(){
@@ -1164,6 +1218,8 @@
             initSetupDraft(4, false);
             showSetup();
         }
+        // Firestore is source of truth when it has newer data (async, non-blocking)
+        cloudReconcile();
     });
 
     /* expose to inline handlers */

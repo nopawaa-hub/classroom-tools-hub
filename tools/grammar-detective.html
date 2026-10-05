@@ -13,6 +13,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
 
+    <!-- Shared Firebase config (Firestore backend, with localStorage fallback) -->
+    <script src="../firebase-config.js"></script>
+
     <style>
         :root {
             --parchment: #faf6ee;
@@ -1096,6 +1099,49 @@
         if (raw) customCases = JSON.parse(raw);
     } catch (e) { customCases = []; }
 
+    /* --- Cloud sync (Firestore) with localStorage fallback ---
+       Reads/writes the single document grammar_cases/main, which holds
+       an array of custom cases. Falls back to localStorage if Firestore
+       is unreachable (offline / blocked CDN).                             */
+    const GD_COLLECTION = 'grammar_cases';
+    const GD_DOC = 'main';
+    let _cloudLoaded = false;
+
+    async function cloudLoadCases() {
+        try {
+            const db = await window.cthDb();
+            const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+            const snap = await getDoc(doc(db, GD_COLLECTION, GD_DOC));
+            if (snap.exists()) {
+                const data = snap.data();
+                if (Array.isArray(data.cases)) {
+                    customCases = data.cases;
+                    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(customCases)); } catch(e){}
+                }
+            }
+            _cloudLoaded = true;
+            // refresh UI counts if present
+            const info = document.getElementById('caseCountInfo');
+            if (info) info.textContent = `${CASE_BANK.length + customCases.length} cases available`;
+        } catch (err) {
+            // silent fallback to localStorage-only
+            _cloudLoaded = true;
+        }
+    }
+
+    async function cloudSaveCases() {
+        try {
+            const db = await window.cthDb();
+            const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+            await setDoc(doc(db, GD_COLLECTION, GD_DOC), { cases: customCases, updatedAt: Date.now() });
+        } catch (err) {
+            // silent fallback — localStorage already written locally
+        }
+    }
+
+    // kick off cloud load as soon as the script runs
+    window.addEventListener('DOMContentLoaded', cloudLoadCases);
+
     /* ----------------------------------------------------------------------
        3. UTILITY
        ---------------------------------------------------------------------- */
@@ -1614,6 +1660,7 @@
         };
         customCases.push(newCase);
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(customCases)); } catch(e){}
+        cloudSaveCases(); // mirror to Firestore
         closeCreateModal();
         // jump straight into the new case
         state.currentCase = newCase;

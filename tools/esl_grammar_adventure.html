@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verb Power: Present Continuous</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Comic Neue', cursive;
+            background-color: #f0f9ff;
+            overflow-x: hidden;
+        }
+
+        .step-container {
+            display: none;
+            animation: slideIn 0.5s ease-out forwards;
+        }
+
+        .step-container.active {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .option-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .option-card:hover {
+            transform: scale(1.02);
+            background-color: #e0f2fe;
+        }
+
+        .feedback-pop {
+            animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0.5); }
+            100% { transform: scale(1); }
+        }
+
+        .drop-zone {
+            min-height: 60px;
+            border: 2px dashed #94a3b8;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px;
+        }
+
+        .draggable-chip {
+            background: #ffffff;
+            border: 2px solid #3b82f6;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: grab;
+            user-select: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .draggable-chip:active {
+            cursor: grabbing;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-2xl mx-auto bg-white rounded-3xl shadow-xl border-4 border-blue-200 overflow-hidden">
+        <!-- Progress Bar -->
+        <div class="h-4 bg-gray-100 w-full">
+            <div id="progressBar" class="h-full bg-blue-500 transition-all duration-500" style="width: 15%"></div>
+        </div>
+
+        <div class="p-6 md:p-10">
+            <!-- Header -->
+            <div class="flex justify-between items-center mb-6">
+                <h1 id="stepTitle" class="text-2xl md:text-3xl font-bold text-blue-600">What are they doing?</h1>
+                <span id="stepCounter" class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-bold">Step 1/6</span>
+            </div>
+
+            <!-- Content Area -->
+            <div id="content">
+                
+                <!-- Step 1 & 2: Visual Input & Matching -->
+                <div id="step1" class="step-container active">
+                    <div class="mb-6 text-center">
+                        <p class="text-lg text-gray-600 mb-4">Look at the picture and choose the correct sentence!</p>
+                        <div id="imageContainer" class="w-full aspect-square max-w-[300px] mx-auto bg-gray-50 rounded-2xl flex items-center justify-center border-2 border-dashed border-gray-300 relative">
+                            <div id="imageLoader" class="absolute inset-0 flex items-center justify-center bg-white rounded-2xl z-10">
+                                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                            </div>
+                            <img id="mainImage" src="" alt="Action" class="rounded-2xl shadow-sm w-full h-full object-cover hidden">
+                        </div>
+                    </div>
+                    
+                    <div id="optionsContainer" class="grid gap-3">
+                        <!-- Options injected by JS -->
+                    </div>
+                </div>
+
+                <!-- Step 3: Pattern Discovery -->
+                <div id="step3" class="step-container">
+                    <div class="bg-blue-50 p-6 rounded-2xl border-2 border-blue-100 mb-6">
+                        <p class="text-xl text-center mb-4">Look closely at these sentences:</p>
+                        <div class="flex flex-col gap-3 items-center">
+                            <div class="text-2xl bg-white px-4 py-2 rounded-xl shadow-sm">He <span class="text-blue-600 font-bold">is</span> eat<span class="text-red-500 font-bold">ing</span>.</div>
+                            <div class="text-2xl bg-white px-4 py-2 rounded-xl shadow-sm">She <span class="text-blue-600 font-bold">is</span> cook<span class="text-red-500 font-bold">ing</span>.</div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="question-block">
+                            <p class="text-lg font-bold mb-3">1. What word comes after "He" or "She"?</p>
+                            <div class="flex gap-4">
+                                <button onclick="checkDiscovery(this, 'is')" class="flex-1 py-3 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-400">am</button>
+                                <button onclick="checkDiscovery(this, 'is')" class="flex-1 py-3 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-400">is</button>
+                                <button onclick="checkDiscovery(this, 'is')" class="flex-1 py-3 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-400">are</button>
+                            </div>
+                        </div>
+                        <div id="q2" class="question-block opacity-50 pointer-events-none transition-opacity">
+                            <p class="text-lg font-bold mb-3">2. What 3 letters do we add to the action word?</p>
+                            <div class="flex gap-4">
+                                <button onclick="checkDiscovery(this, 'ing')" class="flex-1 py-3 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-400">-ed</button>
+                                <button onclick="checkDiscovery(this, 'ing')" class="flex-1 py-3 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-400">-s</button>
+                                <button onclick="checkDiscovery(this, 'ing')" class="flex-1 py-3 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-400">-ing</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4: Word Build -->
+                <div id="step4" class="step-container">
+                    <p class="text-lg text-center mb-6">Build the sentence for the picture!</p>
+                    
+                    <div class="w-48 h-48 mx-auto mb-6">
+                        <img src="" id="step4Img" class="rounded-2xl shadow-md w-full h-full object-cover">
+                    </div>
+
+                    <div id="dropZone" class="drop-zone mb-8">
+                        <!-- Placed words go here -->
+                    </div>
+
+                    <div id="wordBank" class="flex flex-wrap justify-center gap-3">
+                        <!-- Draggable chips -->
+                    </div>
+                    
+                    <div class="mt-8 text-center">
+                        <button id="checkBuildBtn" class="bg-green-500 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-green-600 hidden">Check Answer</button>
+                    </div>
+                </div>
+
+                <!-- Step 5: Verb Transformation -->
+                <div id="step5" class="step-container">
+                    <p class="text-lg text-center mb-8">Change the action word! Type the new word:</p>
+                    
+                    <div class="space-y-6 max-w-sm mx-auto">
+                        <div class="flex items-center gap-4">
+                            <span class="text-xl w-20 text-right">read →</span>
+                            <input type="text" data-ans="reading" oninput="checkInput(this)" class="flex-1 border-2 border-gray-200 rounded-xl p-3 text-center focus:border-blue-500 outline-none" placeholder="...">
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="text-xl w-20 text-right">cook →</span>
+                            <input type="text" data-ans="cooking" oninput="checkInput(this)" class="flex-1 border-2 border-gray-200 rounded-xl p-3 text-center focus:border-blue-500 outline-none" placeholder="...">
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="text-xl w-20 text-right">run →</span>
+                            <input type="text" data-ans="running" oninput="checkInput(this)" class="flex-1 border-2 border-gray-200 rounded-xl p-3 text-center focus:border-blue-500 outline-none" placeholder="...">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 6: Concept Check -->
+                <div id="step6" class="step-container text-center">
+                    <p class="text-xl font-bold mb-8">Quick Quiz! Which is correct?</p>
+                    
+                    <div class="space-y-4">
+                        <div class="p-4 bg-white border-2 border-blue-100 rounded-2xl">
+                            <p class="mb-3 font-bold text-gray-500">Q1:</p>
+                            <div class="flex gap-3">
+                                <button onclick="finalCheck(this, true)" class="flex-1 p-3 bg-gray-50 rounded-xl hover:bg-blue-50">He is eating</button>
+                                <button onclick="finalCheck(this, false)" class="flex-1 p-3 bg-gray-50 rounded-xl hover:bg-blue-50">He is eat</button>
+                            </div>
+                        </div>
+                        <div class="p-4 bg-white border-2 border-blue-100 rounded-2xl">
+                            <p class="mb-3 font-bold text-gray-500">Q2:</p>
+                            <div class="flex gap-3">
+                                <button onclick="finalCheck(this, false)" class="flex-1 p-3 bg-gray-50 rounded-xl hover:bg-blue-50">She is run</button>
+                                <button onclick="finalCheck(this, true)" class="flex-1 p-3 bg-gray-50 rounded-xl hover:bg-blue-50">She is running</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="finishBlock" class="mt-8 hidden">
+                        <h2 class="text-4xl font-bold text-green-600 mb-4">Great Job! 🌟</h2>
+                        <p class="text-xl text-gray-600">You are a Present Continuous Star!</p>
+                        <button onclick="location.reload()" class="mt-6 bg-blue-600 text-white px-6 py-2 rounded-full font-bold">Play Again</button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Navigation -->
+            <div id="feedback" class="mt-6 h-12 text-center text-xl font-bold flex items-center justify-center"></div>
+            
+            <div class="mt-6 flex justify-end">
+                <button id="nextBtn" class="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed hidden transition-all">Next Step ➜</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const apiKey = (localStorage.getItem('cth_gemini_key')||"");
+        let currentStep = 1;
+        let currentQuestion = 0;
+        let images = {};
+
+        const questions = [
+            {
+                prompt: "a young boy eating a big sandwich",
+                options: ["He is eat", "He is eating", "He eating"],
+                correct: 1
+            },
+            {
+                prompt: "a young girl reading an interesting book",
+                options: ["She reading", "She is reads", "She is reading"],
+                correct: 2
+            },
+            {
+                prompt: "a man running in a park",
+                options: ["He is running", "He is run", "He running"],
+                correct: 0
+            },
+            {
+                prompt: "a woman cooking soup in a kitchen",
+                options: ["She cooking", "She is cooking", "She is cooks"],
+                correct: 1
+            }
+        ];
+
+        async function generateImages() {
+            const statusBox = document.getElementById('feedback');
+            statusBox.innerText = "✨ Preparing magic pictures...";
+
+            try {
+                // Generate all needed images sequentially or in parallel
+                // To keep it simple and responsive for the tutorial, we do them one by one
+                for (let i = 0; i < questions.length; i++) {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            instances: { 
+                                prompt: `child-friendly 2D cartoon style illustration, white background, single character, ${questions[i].prompt}, simple colors, high quality, no text` 
+                            },
+                            parameters: { sampleCount: 1 }
+                        })
+                    });
+                    const data = await response.json();
+                    images[i] = `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
+                }
+                
+                // Show first image
+                showQuestion(0);
+                statusBox.innerText = "";
+            } catch (err) {
+                console.error(err);
+                statusBox.innerText = "⚠️ Oops! Let's try again.";
+            }
+        }
+
+        function showQuestion(index) {
+            const img = document.getElementById('mainImage');
+            const loader = document.getElementById('imageLoader');
+            const options = document.getElementById('optionsContainer');
+            
+            loader.classList.remove('hidden');
+            img.classList.add('hidden');
+            img.src = images[index];
+            img.onload = () => {
+                loader.classList.add('hidden');
+                img.classList.remove('hidden');
+            };
+
+            options.innerHTML = '';
+            questions[index].options.forEach((opt, i) => {
+                const btn = document.createElement('div');
+                btn.className = "option-card bg-white border-2 border-gray-200 p-4 rounded-2xl text-xl text-center font-bold";
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(i, index, btn);
+                options.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selected, qIndex, element) {
+            const feedback = document.getElementById('feedback');
+            if (selected === questions[qIndex].correct) {
+                element.classList.add('bg-green-100', 'border-green-500', 'text-green-700', 'feedback-pop');
+                feedback.innerText = "Correct! 🌟";
+                feedback.className = "mt-6 h-12 text-center text-xl font-bold text-green-600 flex items-center justify-center";
+                
+                setTimeout(() => {
+                    if (currentQuestion < questions.length - 1) {
+                        currentQuestion++;
+                        showQuestion(currentQuestion);
+                        feedback.innerText = "";
+                    } else {
+                        showNextBtn();
+                    }
+                }, 1000);
+            } else {
+                element.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+                feedback.innerText = "Try again! 💪";
+                feedback.className = "mt-6 h-12 text-center text-xl font-bold text-red-600 flex items-center justify-center";
+                setTimeout(() => {
+                    element.classList.remove('bg-red-100', 'border-red-500', 'text-red-700');
+                    feedback.innerText = "";
+                }, 800);
+            }
+        }
+
+        function showNextBtn() {
+            const btn = document.getElementById('nextBtn');
+            btn.classList.remove('hidden');
+        }
+
+        document.getElementById('nextBtn').onclick = () => {
+            currentStep++;
+            updateUI();
+        };
+
+        function updateUI() {
+            document.querySelectorAll('.step-container').forEach(s => s.classList.remove('active'));
+            document.getElementById(`step${currentStep}`).classList.add('active');
+            
+            document.getElementById('stepCounter').innerText = `Step ${currentStep}/6`;
+            document.getElementById('progressBar').style.width = `${(currentStep/6) * 100}%`;
+            document.getElementById('nextBtn').classList.add('hidden');
+            document.getElementById('feedback').innerText = "";
+
+            if (currentStep === 3) {
+                document.getElementById('stepTitle').innerText = "Spot the Pattern";
+            } else if (currentStep === 4) {
+                document.getElementById('stepTitle').innerText = "Sentence Builder";
+                initStep4();
+            } else if (currentStep === 5) {
+                document.getElementById('stepTitle').innerText = "Verb Maker";
+            } else if (currentStep === 6) {
+                document.getElementById('stepTitle').innerText = "Challenge Time";
+            }
+        }
+
+        // Step 3 Logic
+        function checkDiscovery(btn, correct) {
+            const parent = btn.parentElement;
+            if (btn.innerText === correct || btn.innerText === `-${correct}`) {
+                btn.className = "flex-1 py-3 bg-green-500 text-white rounded-xl font-bold feedback-pop";
+                // Disable other buttons in this group
+                Array.from(parent.children).forEach(b => b.onclick = null);
+                
+                if (correct === 'is') {
+                    document.getElementById('q2').classList.remove('opacity-50', 'pointer-events-none');
+                } else {
+                    showNextBtn();
+                }
+            } else {
+                btn.classList.add('bg-red-100', 'border-red-400');
+            }
+        }
+
+        // Step 4 Logic
+        function initStep4() {
+            const img = document.getElementById('step4Img');
+            img.src = images[1]; // Using the reading image
+            
+            const bank = document.getElementById('wordBank');
+            const drop = document.getElementById('dropZone');
+            const words = ['She', 'is', 'reading', 'read', 'reads'];
+            bank.innerHTML = '';
+            drop.innerHTML = '';
+
+            words.sort(() => Math.random() - 0.5).forEach(w => {
+                const chip = document.createElement('div');
+                chip.className = "draggable-chip";
+                chip.innerText = w;
+                chip.onclick = () => moveWord(chip);
+                bank.appendChild(chip);
+            });
+        }
+
+        function moveWord(chip) {
+            const drop = document.getElementById('dropZone');
+            const bank = document.getElementById('wordBank');
+            
+            if (chip.parentElement === bank) {
+                drop.appendChild(chip);
+            } else {
+                bank.appendChild(chip);
+            }
+            
+            // Check if full
+            const checkBtn = document.getElementById('checkBuildBtn');
+            if (drop.children.length === 3) {
+                checkBtn.classList.remove('hidden');
+            } else {
+                checkBtn.classList.add('hidden');
+            }
+        }
+
+        document.getElementById('checkBuildBtn').onclick = () => {
+            const drop = document.getElementById('dropZone');
+            const answer = Array.from(drop.children).map(c => c.innerText).join(' ');
+            const feedback = document.getElementById('feedback');
+
+            if (answer === "She is reading") {
+                feedback.innerText = "Perfect sentence! ✅";
+                feedback.className = "mt-6 h-12 text-center text-xl font-bold text-green-600 flex items-center justify-center";
+                showNextBtn();
+            } else {
+                feedback.innerText = "Not quite. Try again! 🔄";
+                feedback.className = "mt-6 h-12 text-center text-xl font-bold text-red-600 flex items-center justify-center";
+            }
+        }
+
+        // Step 5 Logic
+        function checkInput(el) {
+            const val = el.value.toLowerCase().trim();
+            const ans = el.getAttribute('data-ans');
+            
+            if (val === ans) {
+                el.classList.replace('border-gray-200', 'border-green-500');
+                el.classList.add('bg-green-50');
+                el.disabled = true;
+            }
+
+            const allDone = Array.from(document.querySelectorAll('#step5 input')).every(i => i.disabled);
+            if (allDone) {
+                document.getElementById('feedback').innerText = "You typed them all correctly!";
+                showNextBtn();
+            }
+        }
+
+        // Step 6 Logic
+        let score6 = 0;
+        function finalCheck(btn, isCorrect) {
+            const parent = btn.parentElement;
+            Array.from(parent.children).forEach(b => {
+                b.onclick = null;
+                b.classList.add('opacity-50');
+            });
+
+            if (isCorrect) {
+                btn.className = "flex-1 p-3 bg-green-500 text-white rounded-xl font-bold opacity-100 feedback-pop";
+                score6++;
+            } else {
+                btn.className = "flex-1 p-3 bg-red-500 text-white rounded-xl font-bold opacity-100";
+            }
+
+            if (document.querySelectorAll('#step6 .opacity-100').length === 2) {
+                document.getElementById('finishBlock').classList.remove('hidden');
+                document.getElementById('progressBar').style.width = "100%";
+            }
+        }
+
+        window.onload = generateImages;
+    </script>
+<script>(function(){var b=document.createElement('button');b.textContent='🔑 AI Key';b.title='Set your free Gemini API key (aistudio.google.com/apikey) - stored only in this browser';b.style.cssText='position:fixed;bottom:10px;right:10px;z-index:2147483647;opacity:.55;font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid rgba(0,0,0,.15);background:rgba(255,255,255,.92);cursor:pointer;font-family:sans-serif';b.onclick=function(){var k=prompt('Paste your free Gemini API key (aistudio.google.com/apikey). Stored only in this browser:',localStorage.getItem('cth_gemini_key')||'');if(k!==null){localStorage.setItem('cth_gemini_key',k.trim());alert(k.trim()?'Key saved. Reload the page (F5) to enable AI features.':'Key cleared.');}};document.body.appendChild(b);})();</script>
+</body>
+</html>

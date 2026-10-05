@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>English Game Show</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+    <style>
+        body { margin: 0; background: #0f172a; }
+        #err { display: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <div id="err" style="color:#fca5a5;padding:2rem;font-family:sans-serif;white-space:pre-wrap"></div>
+    <button id="aiKeyBtn" title="Set your free Gemini API key (aistudio.google.com/apikey) — stored only in this browser"
+            style="position:fixed;bottom:10px;right:10px;z-index:2147483647;opacity:.55;font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(15,23,42,.9);color:#e2e8f0;cursor:pointer;font-family:sans-serif">🔑 AI Key</button>
+
+    <script>
+        // The .tsx component was authored for a sandbox that auto-injects a
+        // Gemini key; on a real site the teacher pastes their own free key once
+        // (stored in localStorage) and AI features come alive.
+        document.getElementById('aiKeyBtn').onclick = function () {
+            var k = prompt('Paste your free Gemini API key (aistudio.google.com/apikey). Stored only in this browser:',
+                           localStorage.getItem('cth_gemini_key') || '');
+            if (k !== null) {
+                localStorage.setItem('cth_gemini_key', k.trim());
+                alert(k.trim() ? 'Key saved. Reload the page (F5) to enable AI features.' : 'Key cleared.');
+            }
+        };
+
+        (async function () {
+            const root = document.getElementById('root');
+            const showErr = (msg) => {
+                const e = document.getElementById('err');
+                e.textContent = msg; e.style.display = 'block';
+            };
+            try {
+                const res = await fetch('english-game-show.tsx');
+                if (!res.ok) throw new Error('Could not load english-game-show.tsx (HTTP ' + res.status + '). Open this page via the local server, not file://.');
+                let src = await res.text();
+
+                // Strip ESM imports — shims below provide everything.
+                src = src.replace(/import[\s\S]*?from\s*['"][^'"]*['"];?/g, '');
+                // Strip module exports — this runs as a plain script.
+                src = src.replace(/\bexport\s+default\s*/g, '')
+                         .replace(/\bexport\s+(?=(const|let|var|function|class)\b)/g, '');
+
+                // Lucide-react icon shims (emoji stand-ins) + React hooks.
+                const prelude = `
+                    const { useState, useEffect, useRef, useCallback, useMemo } = React;
+                    const __mkIcon = (ch) => ({ size = 16, className = "", style = {} } = {}) =>
+                        React.createElement('span', {
+                            className,
+                            style: Object.assign({ fontSize: size, lineHeight: 1, display: 'inline-block' }, style)
+                        }, ch);
+                    const Play = __mkIcon('\\u25B6'), Pause = __mkIcon('\\u23F8'), RotateCcw = __mkIcon('\\u21BB'),
+                          SkipForward = __mkIcon('\\u23ED'), Check = __mkIcon('\\u2713'), X = __mkIcon('\\u2715'),
+                          Settings = __mkIcon('\\u2699'), Undo = __mkIcon('\\u21A9'), ChevronRight = __mkIcon('\\u203A'),
+                          Trophy = __mkIcon('\\uD83C\\uDFC6'), AlertCircle = __mkIcon('\\u26A0\\uFE0F'),
+                          Sparkles = __mkIcon('\\u2728'), ImageIcon = __mkIcon('\\uD83D\\uDDBC\\uFE0F'),
+                          Bot = __mkIcon('\\uD83E\\uDD16'), Loader2 = __mkIcon('\\u231B');
+                `;
+
+                const tail = '\n;__cthMount(typeof EnglishGameShow !== "undefined" ? EnglishGameShow : (typeof App !== "undefined" ? App : null));';
+                const out = Babel.transform(prelude + '\n' + src + tail, { presets: ['react'] }).code;
+
+                new Function('React', 'ReactDOM', '__cthMount', out)(
+                    React,
+                    ReactDOM,
+                    (C) => {
+                        if (!C) throw new Error('Component not found in source.');
+                        ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(C));
+                    }
+                );
+            } catch (e) {
+                showErr('Failed to start English Game Show: ' + e.message);
+            }
+        })();
+    </script>
+</body>
+</html>

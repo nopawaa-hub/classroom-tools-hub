@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class 2B - Beach Scoreboard</title>
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load Tone.js for Sound Effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    
+    <!-- Load Google Fonts for a child-friendly, rounded aesthetic -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* Base typography and theme setup */
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: #87CEEB; /* Sky blue */
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+            /* Prevent text selection during fast clicking */
+            user-select: none; 
+            -webkit-user-select: none;
+        }
+
+        /* The beach/ocean background layer */
+        .beach-bg {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: -2;
+            background: linear-gradient(180deg, #87CEEB 0%, #4DB8FF 40%, #e8d099 45%, #F4A460 100%);
+        }
+
+        /* SVG Waves for transition between water and sand */
+        .wave-separator {
+            position: fixed;
+            top: 40%;
+            left: 0;
+            width: 100%;
+            height: 10vw;
+            z-index: -1;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%23e8d099' fill-opacity='1' d='M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,170.7C960,160,1056,192,1152,208C1248,224,1344,224,1392,224L1440,224L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* Decorative Background Elements (positioned so they don't block cards) */
+        .deco-item {
+            position: fixed;
+            z-index: -1;
+            font-size: 4rem;
+            opacity: 0.7;
+            filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.2));
+        }
+
+        /* UI Enhancements */
+        .text-outline {
+            text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 4px 8px rgba(0,0,0,0.4);
+        }
+        
+        .score-shadow {
+            filter: drop-shadow(0px 8px 10px rgba(0,0,0,0.3));
+        }
+
+        /* Animations */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop {
+            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes starSpin {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.4); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+        .animate-star {
+            animation: starSpin 0.5s ease-out;
+        }
+
+        /* Podium Entrance Animation */
+        @keyframes riseUp {
+            0% { transform: translateY(100%); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        .animate-rise {
+            animation: riseUp 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+        }
+
+        /* Glassmorphism for panels */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 4px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        /* Score Card styling */
+        .score-card {
+            transition: transform 0.2s;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.3), inset 0 4px 15px rgba(255,255,255,0.4);
+        }
+        
+        .btn-game {
+            transition: all 0.1s;
+            box-shadow: 0 6px 0 rgba(0,0,0,0.2);
+        }
+        .btn-game:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+        }
+        
+        /* Modal styling */
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+        }
+        
+        /* Celebration Canvas layer */
+        #confetti-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 9999; /* Moved up to display over modals */
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col relative text-gray-800">
+
+    <!-- Background Elements -->
+    <div class="beach-bg"></div>
+    <div class="wave-separator"></div>
+    
+    <!-- Decorative Emojis on the beach -->
+    <div class="deco-item" style="top: 15%; left: 5%;">☁️</div>
+    <div class="deco-item" style="top: 10%; right: 10%;">☁️</div>
+    <div class="deco-item text-6xl" style="top: 5%; left: 80%;">☀️</div>
+    <div class="deco-item" style="bottom: 5%; left: 3%;">🏰</div>
+    <div class="deco-item" style="bottom: 15%; left: 18%;">🦀</div>
+    <div class="deco-item" style="bottom: 8%; right: 5%;">⛱️</div>
+    <div class="deco-item" style="bottom: 2%; right: 25%;">🏐</div>
+    <div class="deco-item" style="bottom: 12%; right: 15%;">🐚</div>
+
+    <!-- Celebration Canvas -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- Header Section -->
+    <header class="w-full p-4 flex justify-between items-start z-10">
+        
+        <!-- Round Controls -->
+        <div class="glass-panel rounded-2xl p-3 flex flex-col items-center gap-2">
+            <span class="font-bold text-xl text-blue-900 uppercase tracking-widest">Select Round</span>
+            <div class="flex gap-2">
+                <button onclick="setRound(1)" id="btn-round-1" class="px-4 py-2 rounded-xl font-bold bg-blue-500 text-white shadow-md transform hover:scale-105 active:scale-95 transition">1</button>
+                <button onclick="setRound(2)" id="btn-round-2" class="px-4 py-2 rounded-xl font-bold bg-gray-200 text-gray-600 shadow-md transform hover:scale-105 active:scale-95 transition">2</button>
+                <button onclick="setRound(3)" id="btn-round-3" class="px-4 py-2 rounded-xl font-bold bg-gray-200 text-gray-600 shadow-md transform hover:scale-105 active:scale-95 transition">3</button>
+            </div>
+            <div class="mt-1 font-black text-2xl text-blue-800 bg-blue-100 px-4 py-1 rounded-full border-2 border-blue-300" id="current-round-display">
+                ROUND 1
+            </div>
+        </div>
+
+        <!-- Main Titles -->
+        <div class="flex flex-col items-center justify-center -mt-2">
+            <h1 class="text-6xl md:text-7xl font-black text-white text-outline tracking-wider flex items-center gap-4">
+                🏖️ AT THE BEACH
+            </h1>
+            <h2 class="text-4xl md:text-5xl font-black text-yellow-300 text-outline mt-2 tracking-widest">
+                CLASS 2B
+            </h2>
+        </div>
+
+        <!-- Global Total Stars -->
+        <div class="glass-panel rounded-3xl p-4 flex flex-col items-center border-4 border-yellow-400">
+            <span class="font-bold text-xl text-gray-700 uppercase tracking-widest">Total Stars</span>
+            <div class="flex items-center gap-2 mt-1">
+                <span class="text-4xl">⭐</span>
+                <span id="global-total" class="text-5xl font-black text-yellow-500 score-shadow">0</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content: Score Cards -->
+    <main class="flex-grow flex items-center justify-center w-full px-4 py-2 z-10">
+        <!-- Flex container adapted for 16:9 projection (horizontal layout) -->
+        <div id="cards-container" class="flex flex-row justify-center gap-4 xl:gap-6 w-full max-w-[1920px]">
+            <!-- Cards injected via JavaScript -->
+        </div>
+    </main>
+
+    <!-- Footer Section -->
+    <footer class="w-full p-6 flex justify-center gap-8 z-10">
+        <button onclick="showResetModal()" class="btn-game bg-red-600 hover:bg-red-500 text-white text-2xl font-black py-4 px-10 rounded-full border-4 border-white flex items-center gap-3 transition shadow-lg">
+            <span class="text-3xl">⚠️</span> RESET ALL
+        </button>
+        <button onclick="showPodium()" class="btn-game bg-green-500 hover:bg-green-400 text-white text-2xl font-black py-4 px-10 rounded-full border-4 border-white flex items-center gap-3 transition shadow-lg">
+            <span class="text-3xl">🏆</span> FINISH
+        </button>
+    </footer>
+
+    <!-- Custom Confirmation Modal (Hidden by default) -->
+    <div id="reset-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden">
+        <div class="bg-white rounded-3xl p-8 max-w-lg w-full text-center shadow-2xl border-8 border-red-500 transform scale-100 transition-transform">
+            <div class="text-7xl mb-4">🚨</div>
+            <h2 class="text-4xl font-black text-gray-800 mb-2">Are you sure?</h2>
+            <p class="text-2xl text-gray-600 mb-8 font-semibold">This will reset all group scores to zero.</p>
+            <div class="flex justify-center gap-6">
+                <button onclick="hideResetModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 text-2xl font-bold py-4 rounded-2xl transition">
+                    CANCEL
+                </button>
+                <button onclick="confirmResetAll()" class="flex-1 bg-red-600 hover:bg-red-500 text-white text-2xl font-bold py-4 rounded-2xl shadow-lg transition">
+                    YES, RESET
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Podium Modal (Hidden by default) -->
+    <div id="podium-modal" class="fixed inset-0 z-[60] flex flex-col items-center justify-end modal-overlay hidden pb-10">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm -z-10"></div>
+        <h2 class="text-6xl md:text-8xl font-black text-white text-outline mb-auto mt-20 animate-pop tracking-widest text-center px-4">
+            🏆 CLASS 2B CHAMPIONS 🏆
+        </h2>
+        
+        <!-- Podium Container -->
+        <div class="flex items-end justify-center gap-1 md:gap-4 h-[70vh] w-full max-w-6xl px-2" id="podium-container">
+            <!-- Podium steps injected here -->
+        </div>
+
+        <button onclick="hidePodium()" class="mt-12 btn-game bg-white hover:bg-gray-100 text-blue-900 text-3xl font-black py-4 px-12 rounded-full border-4 border-blue-900 shadow-2xl z-[70] transition-transform">
+            CLOSE CELEBRATION
+        </button>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // --- State Management ---
+        const groups = [
+            { id: 'red', name: 'RED', score: 0, theme: 'bg-red-500', btnTheme: 'bg-red-700', textColors: 'text-white' },
+            { id: 'pink', name: 'PINK', score: 0, theme: 'bg-pink-400', btnTheme: 'bg-pink-600', textColors: 'text-white' },
+            { id: 'blue', name: 'BLUE', score: 0, theme: 'bg-blue-500', btnTheme: 'bg-blue-700', textColors: 'text-white' },
+            { id: 'yellow', name: 'YELLOW', score: 0, theme: 'bg-yellow-400', btnTheme: 'bg-yellow-600', textColors: 'text-gray-900' },
+            { id: 'green', name: 'GREEN', score: 0, theme: 'bg-emerald-500', btnTheme: 'bg-emerald-700', textColors: 'text-white' }
+        ];
+
+        let currentRound = 1;
+
+        // --- Sound Engine (Tone.js) ---
+        let audioEnabled = false;
+        const sfxSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.5 }
+        }).toDestination();
+        
+        sfxSynth.volume.value = -8; // Slightly lower volume so it's not piercing
+
+        async function initAudio() {
+            if (!audioEnabled) {
+                await Tone.start();
+                audioEnabled = true;
+            }
+        }
+
+        const soundEffects = {
+            addOne: () => {
+                if(!audioEnabled) return;
+                sfxSynth.triggerAttackRelease("E5", "8n");
+            },
+            addFive: () => {
+                if(!audioEnabled) return;
+                const now = Tone.now();
+                sfxSynth.triggerAttackRelease("E5", "16n", now);
+                sfxSynth.triggerAttackRelease("G5", "16n", now + 0.1);
+                sfxSynth.triggerAttackRelease("C6", "8n", now + 0.2);
+            },
+            removeOne: () => {
+                if(!audioEnabled) return;
+                sfxSynth.triggerAttackRelease("C4", "16n");
+            },
+            resetSingle: () => {
+                if(!audioEnabled) return;
+                const now = Tone.now();
+                sfxSynth.triggerAttackRelease("G4", "16n", now);
+                sfxSynth.triggerAttackRelease("E4", "16n", now + 0.1);
+                sfxSynth.triggerAttackRelease("C4", "8n", now + 0.2);
+            },
+            resetAll: () => {
+                if(!audioEnabled) return;
+                const now = Tone.now();
+                sfxSynth.triggerAttackRelease(["C3", "G3", "C4"], "4n", now);
+            },
+            roundChange: () => {
+                if(!audioEnabled) return;
+                const now = Tone.now();
+                sfxSynth.triggerAttackRelease("A4", "16n", now);
+                sfxSynth.triggerAttackRelease("D5", "8n", now + 0.1);
+            },
+            celebrateSmall: () => {
+                if(!audioEnabled) return;
+                const now = Tone.now();
+                sfxSynth.triggerAttackRelease("C5", "16n", now);
+                sfxSynth.triggerAttackRelease("E5", "16n", now + 0.15);
+                sfxSynth.triggerAttackRelease("G5", "16n", now + 0.3);
+                sfxSynth.triggerAttackRelease("C6", "4n", now + 0.45);
+            },
+            celebrateLarge: () => {
+                if(!audioEnabled) return;
+                const now = Tone.now();
+                sfxSynth.triggerAttackRelease(["C5", "E5", "G5"], "8n", now);
+                sfxSynth.triggerAttackRelease(["F5", "A5", "C6"], "8n", now + 0.2);
+                sfxSynth.triggerAttackRelease(["G5", "B5", "D6"], "8n", now + 0.4);
+                sfxSynth.triggerAttackRelease(["C5", "E5", "G5", "C6"], "2n", now + 0.6);
+            },
+            triumphSong: () => {
+                if(!audioEnabled) return;
+                const now = Tone.now();
+                // Triumphant Fanfare Sequence
+                sfxSynth.triggerAttackRelease(["C4", "E4", "G4"], "8n", now);
+                sfxSynth.triggerAttackRelease(["C4", "E4", "G4"], "8n", now + 0.3);
+                sfxSynth.triggerAttackRelease(["C4", "E4", "G4"], "8n", now + 0.6);
+                sfxSynth.triggerAttackRelease(["C4", "E4", "G4", "C5"], "2n", now + 0.9);
+                
+                sfxSynth.triggerAttackRelease(["F4", "A4", "C5"], "4n", now + 1.7);
+                sfxSynth.triggerAttackRelease(["G4", "B4", "D5"], "4n", now + 2.1);
+                sfxSynth.triggerAttackRelease(["C4", "E4", "G4", "C5", "E5"], "1m", now + 2.5);
+            },
+            fireworkPop: () => {
+                if(!audioEnabled) return;
+                sfxSynth.triggerAttackRelease("C6", "32n", Tone.now(), 0.1);
+            }
+        };
+
+        // --- DOM Elements ---
+        const cardsContainer = document.getElementById('cards-container');
+        const globalTotalDisplay = document.getElementById('global-total');
+        const modal = document.getElementById('reset-modal');
+        const roundDisplay = document.getElementById('current-round-display');
+
+        // --- Initialization ---
+        function init() {
+            renderCards();
+            updateTotal();
+            setupCanvas();
+        }
+
+        // --- Rendering Logic ---
+        function renderCards() {
+            cardsContainer.innerHTML = '';
+            
+            groups.forEach((group, index) => {
+                // Apply consistent white text with a thick outline for all groups
+                const titleColor = 'text-white text-outline';
+                const scoreColor = 'text-white';
+                const controlsText = 'text-white';
+
+                const cardHTML = `
+                    <div id="card-${group.id}" class="score-card ${group.theme} rounded-[2rem] p-4 flex flex-col items-center border-[6px] border-white/60 relative w-[18%] min-w-[200px]">
+                        
+                        <!-- Group Name -->
+                        <h2 class="text-4xl md:text-5xl font-black ${titleColor} uppercase tracking-widest mt-2 text-center w-full truncate">
+                            ${group.name}
+                        </h2>
+                        
+                        <!-- Score Display -->
+                        <div class="flex items-center justify-center my-8 md:my-10 relative w-full">
+                            <span id="star-${group.id}" class="text-5xl md:text-6xl mr-2 filter drop-shadow-md z-10">⭐</span>
+                            <span id="score-${group.id}" class="text-7xl md:text-8xl font-black ${scoreColor} score-shadow z-10">
+                                ${group.score}
+                            </span>
+                        </div>
+                        
+                        <!-- Controls -->
+                        <div class="grid grid-cols-2 gap-3 w-full mt-auto">
+                            <button onclick="updateScore(${index}, 1)" class="btn-game ${group.btnTheme} ${controlsText} font-bold text-2xl py-3 rounded-xl col-span-1">
+                                +1 ⭐
+                            </button>
+                            <button onclick="updateScore(${index}, 5)" class="btn-game ${group.btnTheme} ${controlsText} font-bold text-2xl py-3 rounded-xl col-span-1">
+                                +5 ⭐
+                            </button>
+                            <button onclick="updateScore(${index}, -1)" class="btn-game bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xl py-2 rounded-xl col-span-1">
+                                -1 ⭐
+                            </button>
+                            <button onclick="resetGroup(${index})" class="btn-game bg-white hover:bg-gray-100 text-red-600 font-black text-xl py-2 rounded-xl col-span-1">
+                                ↺ RESET
+                            </button>
+                        </div>
+                    </div>
+                `;
+                cardsContainer.innerHTML += cardHTML;
+            });
+        }
+
+        // --- STREAMING_CHUNK:Implementing scoring mechanics and animations... ---
+        // --- Core Mechanics ---
+        async function updateScore(groupIndex, change) {
+            await initAudio(); // Ensure audio context is started on user gesture
+            
+            const group = groups[groupIndex];
+            const oldScore = group.score;
+            
+            // Calculate new score (prevent negative)
+            let newScore = Math.max(0, oldScore + change);
+            group.score = newScore;
+            
+            // Update DOM element text
+            const scoreEl = document.getElementById(`score-${group.id}`);
+            scoreEl.innerText = group.score;
+
+            // Handle Audio and Animations
+            if (change > 0) {
+                if (change === 1) soundEffects.addOne();
+                if (change === 5) soundEffects.addFive();
+
+                // Animate number
+                scoreEl.classList.remove('animate-pop');
+                void scoreEl.offsetWidth; // Trigger reflow
+                scoreEl.classList.add('animate-pop');
+
+                // Animate star
+                const starEl = document.getElementById(`star-${group.id}`);
+                starEl.classList.remove('animate-star');
+                void starEl.offsetWidth; // Trigger reflow
+                starEl.classList.add('animate-star');
+
+                // Celebration checks
+                if (oldScore < 5 && newScore >= 5) {
+                    triggerCelebration(group.id, 'small');
+                    soundEffects.celebrateSmall();
+                }
+                if (oldScore < 10 && newScore >= 10) {
+                    triggerCelebration(group.id, 'large');
+                    soundEffects.celebrateLarge();
+                }
+            } else if (change < 0 && oldScore > 0) {
+                // Only play remove sound if score actually decreased
+                soundEffects.removeOne();
+            }
+
+            updateTotal();
+        }
+
+        async function resetGroup(groupIndex) {
+            await initAudio();
+            if (groups[groupIndex].score > 0) {
+                soundEffects.resetSingle();
+            }
+
+            groups[groupIndex].score = 0;
+            const scoreEl = document.getElementById(`score-${groups[groupIndex].id}`);
+            scoreEl.innerText = 0;
+            updateTotal();
+        }
+
+        function updateTotal() {
+            const total = groups.reduce((sum, group) => sum + group.score, 0);
+            globalTotalDisplay.innerText = total;
+            
+            // Small animation on total
+            globalTotalDisplay.classList.remove('animate-pop');
+            void globalTotalDisplay.offsetWidth;
+            globalTotalDisplay.classList.add('animate-pop');
+        }
+
+        // --- Round Management ---
+        async function setRound(roundNum) {
+            await initAudio();
+            if (currentRound !== roundNum) {
+                soundEffects.roundChange();
+            }
+            
+            currentRound = roundNum;
+            roundDisplay.innerText = `ROUND ${roundNum}`;
+            
+            // Update button styles
+            for (let i = 1; i <= 3; i++) {
+                const btn = document.getElementById(`btn-round-${i}`);
+                if (i === roundNum) {
+                    btn.classList.remove('bg-gray-200', 'text-gray-600');
+                    btn.classList.add('bg-blue-500', 'text-white');
+                } else {
+                    btn.classList.remove('bg-blue-500', 'text-white');
+                    btn.classList.add('bg-gray-200', 'text-gray-600');
+                }
+            }
+            
+            // Note: Prompt stated round changes should NOT reset scores automatically.
+            // Scores remain persistent.
+        }
+
+        // --- STREAMING_CHUNK:Implementing modal and visual effects engine... ---
+        // --- Modal Logic ---
+        async function showResetModal() {
+            await initAudio(); // Start audio in case they click cancel, it's ready
+            modal.classList.remove('hidden');
+        }
+
+        function hideResetModal() {
+            modal.classList.add('hidden');
+        }
+
+        async function confirmResetAll() {
+            await initAudio();
+            soundEffects.resetAll();
+            
+            groups.forEach((group, index) => {
+                // Reset silently here to avoid overlap, the global reset handles the sound
+                group.score = 0;
+                const scoreEl = document.getElementById(`score-${group.id}`);
+                if (scoreEl) scoreEl.innerText = 0;
+            });
+            updateTotal();
+            hideResetModal();
+        }
+
+        // --- STREAMING_CHUNK:Adding Podium Logic and Fireworks... ---
+        // --- Podium Celebration Logic ---
+        async function showPodium() {
+            await initAudio();
+            
+            // Get sorted groups (highest score first)
+            const sortedGroups = [...groups].sort((a, b) => b.score - a.score);
+            
+            const podiumContainer = document.getElementById('podium-container');
+            podiumContainer.innerHTML = '';
+            
+            // Layout: 4th (far left), 2nd (left), 1st (center), 3rd (right), 5th (far right)
+            // Exaggerated height differences for strong visual hierarchy
+            const podiumConfig = [
+                { rank: 3, height: 'h-[30%]', color: 'bg-cyan-400', border: 'border-cyan-300', label: '<span class="text-3xl md:text-5xl font-black text-white text-outline">4TH</span>' },
+                { rank: 1, height: 'h-[75%]', color: 'bg-slate-300', border: 'border-slate-100', label: '<div class="flex flex-col items-center"><span class="text-5xl md:text-7xl drop-shadow-lg mb-1">🥈</span><span class="text-2xl md:text-3xl font-black text-white text-outline">2ND</span></div>' },
+                { rank: 0, height: 'h-[100%]', color: 'bg-yellow-400', border: 'border-yellow-200', label: '<div class="flex flex-col items-center"><span class="text-6xl md:text-8xl drop-shadow-lg mb-1">🥇</span><span class="text-3xl md:text-4xl font-black text-white text-outline">1ST</span></div>' },
+                { rank: 2, height: 'h-[50%]', color: 'bg-orange-500', border: 'border-orange-300', label: '<div class="flex flex-col items-center"><span class="text-5xl md:text-7xl drop-shadow-lg mb-1">🥉</span><span class="text-2xl md:text-3xl font-black text-white text-outline">3RD</span></div>' },
+                { rank: 4, height: 'h-[15%]', color: 'bg-cyan-500', border: 'border-cyan-400', label: '<span class="text-3xl md:text-5xl font-black text-white text-outline">5TH</span>' }
+            ];
+            
+            podiumConfig.forEach((config, i) => {
+                const group = sortedGroups[config.rank];
+                if (!group) return; 
+
+                // Ensure consistent white text outline for all groups on the podium
+                const textColor = 'text-white text-outline';
+                
+                const podiumHTML = `
+                    <div class="flex flex-col items-center justify-end w-1/5 max-w-[220px] animate-rise" style="animation-delay: ${i * 0.15}s">
+                        <!-- Group Info above the step -->
+                        <div class="text-2xl md:text-4xl font-black ${textColor} mb-2 text-center break-words w-full px-1 leading-tight">
+                            ${group.name}
+                        </div>
+                        <div class="text-2xl md:text-4xl font-bold text-white text-outline mb-2 md:mb-4">
+                            ${group.score} ⭐
+                        </div>
+                        
+                        <!-- Podium Step -->
+                        <div class="${config.height} ${config.color} w-full rounded-t-2xl md:rounded-t-3xl border-t-8 border-l-4 ${config.border} flex flex-col items-center justify-start pt-4 shadow-[0_-10px_30px_rgba(0,0,0,0.3)] relative overflow-hidden border-r-4 border-black/10">
+                            <!-- Glass shine effect -->
+                            <div class="absolute inset-0 bg-gradient-to-tr from-transparent to-white opacity-40"></div>
+                            <div class="z-10 flex items-center justify-center">${config.label}</div>
+                        </div>
+                    </div>
+                `;
+                podiumContainer.innerHTML += podiumHTML;
+            });
+            
+            document.getElementById('podium-modal').classList.remove('hidden');
+            
+            soundEffects.triumphSong();
+            startFireworks();
+        }
+
+        function hidePodium() {
+            document.getElementById('podium-modal').classList.add('hidden');
+            stopFireworks();
+        }
+
+        // --- Canvas Confetti Celebration System ---
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let animationFrameId;
+        let fireworksInterval;
+
+        function setupCanvas() {
+            // Resize canvas to full window
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            window.addEventListener('resize', () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            });
+        }
+
+        function triggerCelebration(groupId, size = 'small') {
+            const cardEl = document.getElementById(`card-${groupId}`);
+            if (!cardEl) return;
+            
+            // Get coordinates of the card to burst from its center
+            const rect = cardEl.getBoundingClientRect();
+            const startX = rect.left + (rect.width / 2);
+            const startY = rect.top + (rect.height / 3);
+
+            const particleCount = size === 'large' ? 80 : 30;
+            const colors = ['#FF4B4B', '#FF69B4', '#3B82F6', '#FACC15', '#22C55E', '#FFFFFF'];
+
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: startX,
+                    y: startY,
+                    vx: (Math.random() - 0.5) * (size === 'large' ? 25 : 15),
+                    vy: (Math.random() - 1) * (size === 'large' ? 20 : 15) - 5,
+                    size: Math.random() * 10 + 8,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    life: 1.0,
+                    decay: Math.random() * 0.02 + 0.015,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotSpeed: (Math.random() - 0.5) * 0.4,
+                    type: Math.random() > 0.5 ? 'star' : 'square' // Mix shapes
+                });
+            }
+
+            if (!animationFrameId) {
+                animateParticles();
+            }
+        }
+
+        function triggerFireworkExplosion(x, y) {
+            const particleCount = 80;
+            const colors = ['#FF4B4B', '#FF69B4', '#3B82F6', '#FACC15', '#22C55E', '#FFFFFF', '#FF8C00', '#9400D3'];
+
+            for (let i = 0; i < particleCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 25 + 5; // Explosive speed
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: Math.random() * 10 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    life: 1.0,
+                    decay: Math.random() * 0.02 + 0.005, 
+                    rotation: Math.random() * Math.PI * 2,
+                    rotSpeed: (Math.random() - 0.5) * 0.5,
+                    type: Math.random() > 0.5 ? 'star' : 'circle' 
+                });
+            }
+
+            if (!animationFrameId) {
+                animateParticles();
+            }
+        }
+
+        function startFireworks() {
+            // Initial huge burst in center
+            triggerFireworkExplosion(window.innerWidth / 2, window.innerHeight / 3);
+            
+            // Continuous fireworks
+            fireworksInterval = setInterval(() => {
+                const x = window.innerWidth * 0.1 + (Math.random() * window.innerWidth * 0.8);
+                const y = window.innerHeight * 0.1 + (Math.random() * window.innerHeight * 0.4); // Upper half
+                triggerFireworkExplosion(x, y);
+                soundEffects.fireworkPop();
+            }, 900);
+        }
+
+        function stopFireworks() {
+            clearInterval(fireworksInterval);
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let activeParticles = false;
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                
+                // Physics updates
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.5; // Gravity
+                p.rotation += p.rotSpeed;
+                p.life -= p.decay;
+
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+                
+                activeParticles = true;
+
+                // Render particle
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rotation);
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+
+                if (p.type === 'square') {
+                    ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+                } else if (p.type === 'circle') {
+                    // Draw sparkle circle
+                    ctx.beginPath();
+                    ctx.arc(0, 0, p.size/2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    // Draw simple star
+                    ctx.beginPath();
+                    for (let j = 0; j < 5; j++) {
+                        ctx.lineTo(Math.cos((18 + j * 72) * Math.PI / 180) * p.size, 
+                                 -Math.sin((18 + j * 72) * Math.PI / 180) * p.size);
+                        ctx.lineTo(Math.cos((54 + j * 72) * Math.PI / 180) * (p.size/2), 
+                                 -Math.sin((54 + j * 72) * Math.PI / 180) * (p.size/2));
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            if (activeParticles) {
+                animationFrameId = requestAnimationFrame(animateParticles);
+            } else {
+                animationFrameId = null;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        // Initialize application on load
+        window.onload = init;
+    </script>
+</body>
+</html>

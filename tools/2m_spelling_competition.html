@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏆 2M Spelling Competition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body {
+            background-color: #F0F9FF;
+            -webkit-tap-highlight-color: transparent;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #e0f2fe; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #93c5fd; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #60a5fa; }
+
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        .slide-up { animation: slideUp 0.5s ease-out forwards; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Floating Points Animation */
+        @keyframes floatUpPos {
+            0% { transform: translateY(0) scale(0.8); opacity: 1; }
+            20% { transform: translateY(-15px) scale(1.2); opacity: 1; }
+            100% { transform: translateY(-40px) scale(1); opacity: 0; }
+        }
+        @keyframes floatUpNeg {
+            0% { transform: translateY(0) scale(0.8); opacity: 1; }
+            20% { transform: translateY(15px) scale(1.2); opacity: 1; }
+            100% { transform: translateY(40px) scale(1); opacity: 0; }
+        }
+        .floating-score {
+            position: absolute;
+            font-weight: 900;
+            font-size: 1.25rem;
+            pointer-events: none;
+            z-index: 50;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .float-pos { color: #16a34a; animation: floatUpPos 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        .float-neg { color: #ef4444; animation: floatUpNeg 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        
+        @keyframes scorePopAnim { 0% { transform: scale(1); } 50% { transform: scale(1.4); color: #4f46e5; } 100% { transform: scale(1); } }
+        .score-pop { animation: scorePopAnim 0.4s ease-out forwards; display: inline-block; }
+        
+        @keyframes starPopAnim { 0% { transform: scale(1); } 50% { transform: scale(1.4); } 100% { transform: scale(1); } }
+        .star-pop { animation: starPopAnim 0.4s ease-out forwards; }
+        
+        @keyframes winnerPopAnim { 0% { transform: scale(1); } 50% { transform: scale(1.15); color: #b45309; } 100% { transform: scale(1); } }
+        .winner-pop { animation: winnerPopAnim 0.6s ease-out forwards; }
+        
+        .podium-hidden { transform: translateY(150px) !important; opacity: 0 !important; }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .podium-1 { background: linear-gradient(to top, #fbbf24, #fde68a); border: 2px solid #f59e0b; }
+        .podium-2 { background: linear-gradient(to top, #94a3b8, #e2e8f0); border: 2px solid #64748b; }
+        .podium-3 { background: linear-gradient(to top, #b45309, #fcd34d); border: 2px solid #92400e; }
+        
+        .student-card { min-width: 320px; }
+        
+        @media (min-width: 1536px) { .grid-cols-4-xl { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden text-slate-800">
+
+    <div id="app" class="flex-1 flex flex-col h-full w-full overflow-hidden">
+        <!-- Dynamic Content -->
+    </div>
+
+    <!-- Floating Sound Control -->
+    <button id="btn-sound-toggle" onclick="toggleSound()" class="fixed top-4 right-4 z-50 px-3 py-2 bg-white/90 backdrop-blur border border-slate-200 shadow-sm rounded-lg text-sm font-black text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2">
+        🔊 SOUND ON
+    </button>
+
+    <!-- Modals Overlay -->
+    <div id="modal-container" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden items-center justify-center p-4 fade-in">
+        
+        <!-- Noise Deduction Modal -->
+        <div id="modal-class-deduction" class="hidden bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl transform transition-transform">
+            <h2 class="text-2xl font-black text-center mb-2 text-slate-800">🔊 CLASS NOISE</h2>
+            <p class="text-center text-slate-600 mb-6 font-medium">Apply a behaviour deduction to <span class="font-bold text-red-600">ALL 33 PUPILS</span> at once.</p>
+            <div class="flex flex-col gap-3">
+                <button onclick="applyClassDeduction(1)" class="w-full py-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-black shadow-sm transition-colors border border-red-200">-1 POINT TO ALL</button>
+                <button onclick="applyClassDeduction(2)" class="w-full py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-black shadow-md transition-colors">-2 POINTS TO ALL</button>
+                <button onclick="closeModal()" class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors mt-2">CANCEL</button>
+            </div>
+        </div>
+
+        <!-- Deduction History Modal -->
+        <div id="modal-history" class="hidden bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl transform transition-transform">
+            <h2 class="text-2xl font-black text-center mb-4 text-slate-800">📜 HISTORY</h2>
+            <div id="history-list" class="max-h-64 overflow-y-auto mb-4 border border-slate-200 rounded-xl bg-slate-50 flex flex-col gap-1 p-2">
+                <!-- History items injected here -->
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeModal()" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors">CLOSE</button>
+                <button id="btn-undo-global" onclick="undoGlobalLast()" class="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold shadow-md transition-colors flex items-center justify-center gap-2">
+                    ↺ UNDO LATEST
+                </button>
+            </div>
+        </div>
+
+        <!-- Reset Modal -->
+        <div id="modal-reset" class="hidden bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl transform transition-transform">
+            <h2 class="text-2xl font-black text-center mb-2 text-slate-800">🔄 RESET SCORES</h2>
+            <p class="text-center text-slate-600 mb-6 font-medium">Reset all scores? This will return all 33 pupils to 0 points and 0 deductions.</p>
+            <div class="flex gap-3">
+                <button onclick="closeModal()" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors">CANCEL</button>
+                <button onclick="confirmReset()" class="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold shadow-md transition-colors">RESET</button>
+            </div>
+        </div>
+
+        <!-- Next Round Modal -->
+        <div id="modal-next-round" class="hidden bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl transform transition-transform">
+            <h2 class="text-2xl font-black text-center mb-2 text-slate-800">⏩ NEXT ROUND</h2>
+            <p class="text-center text-slate-600 mb-6 font-medium">Bank the current Total Stars to the Grand Total and start a new 10-word session?</p>
+            <div class="flex gap-3">
+                <button onclick="closeModal()" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors">CANCEL</button>
+                <button onclick="confirmNextRound()" class="flex-1 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-bold shadow-md transition-colors">START ROUND</button>
+            </div>
+        </div>
+
+        <!-- Finish Modal -->
+        <div id="modal-finish" class="hidden bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl transform transition-transform">
+            <h2 class="text-2xl font-black text-center mb-2 text-slate-800">🏆 FINISH</h2>
+            <p class="text-center text-slate-600 mb-6 font-medium">Are you ready to reveal the final results?</p>
+            <div class="flex gap-3">
+                <button onclick="closeModal()" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors">CANCEL</button>
+                <button onclick="confirmFinish()" class="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-md transition-colors">REVEAL RESULTS</button>
+            </div>
+        </div>
+        
+        <!-- New Competition Modal -->
+        <div id="modal-new" class="hidden bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl transform transition-transform">
+            <h2 class="text-2xl font-black text-center mb-2 text-slate-800">🔄 NEW COMPETITION</h2>
+            <p class="text-center text-slate-600 mb-6 font-medium">Start a new competition? All scores will return to 0.</p>
+            <div class="flex gap-3">
+                <button onclick="closeModal()" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors">CANCEL</button>
+                <button onclick="confirmNewCompetition()" class="flex-1 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold shadow-md transition-colors">START NEW</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const RAW_NAMES = [
+            "AUDREE LIM EE JYNN", "CHAN PEI EN", "CHENG KHAI ZHER", "CHONG YOU AN", 
+            "CHONG ZI SHANE", "EDRIC YEOH BOON XUUN", "ELLIE LAU YUN XI", "EVIE ONG YAN FEI", 
+            "FONG KAH YEE", "HARM TZE XIN", "HENG KAI ZE", "JANUARIUS CHAI JIE HENG", 
+            "KASHTON CHOO QUAN YU", "KHAW YUN QING", "KONG HAO XUAN", "LAW JIE XIN", 
+            "LEE KAI SHENG", "LEOW YONG QI", "LIEW WEN SHENG", "LIM JIA XI", 
+            "LO QIAN YING", "LOH EE SHENG", "ONG HAW WEE", "ONG JIA MIN", 
+            "ONG PHEY YU", "OON SZE HAN", "TAN BERNICE", "TAN KAI ZHE", 
+            "TAN PEY XIN", "TAN YEN YEE", "TAN ZI RUI", "TEOW YU TING", "YEOH JIA WEI"
+        ];
+
+        let students = RAW_NAMES.map((name, index) => ({
+            id: index + 1,
+            name: name,
+            totalScore: 0, // Banked final score
+            totalSpelling: 0, // Banked spelling pts
+            totalDeductions: 0, // Banked deductions
+            currentScore: 0, // Spelling stars this round
+            deductions: 0, // Deductions this round
+            deductionStack: [] // Stack of deduction amounts for individual undo
+        }));
+
+        let globalHistory = [];
+        let currentRound = 1;
+        let sortBy = 'score';
+        let currentView = 'scoreboard';
+        let lastAction = { id: null, type: null, oldScore: 0, timestamp: 0 };
+        let isInitialLoad = true;
+
+        let isSoundMuted = false;
+        let isToneInitialized = false;
+        let starSynth, deductSynth, uiSynth, fanfareSynth;
+
+        async function initAudio() {
+            if (isToneInitialized) return true;
+            if (isSoundMuted) return false;
+            try {
+                await Tone.start();
+                Tone.Destination.volume.value = -12; // Comfortable classroom volume
+
+                // Bright, happy synth for stars
+                starSynth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "sine" },
+                    envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.1 }
+                }).toDestination();
+
+                // Soft "bonk" for deductions
+                deductSynth = new Tone.MembraneSynth({
+                    pitchDecay: 0.05, octaves: 2, oscillator: { type: "triangle" },
+                    envelope: { attack: 0.01, decay: 0.2, sustain: 0.01, release: 0.8 }
+                }).toDestination();
+
+                // Neutral UI clicks and soft removals
+                uiSynth = new Tone.Synth({
+                    oscillator: { type: "triangle" },
+                    envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 }
+                }).toDestination();
+
+                // Exciting brass for victory and new leaders
+                fanfareSynth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "fmsquare", modulationType: "triangle", harmonicity: 0.5 },
+                    envelope: { attack: 0.05, decay: 0.2, sustain: 0.3, release: 1.5 }
+                }).toDestination();
+
+                isToneInitialized = true;
+                return true;
+            } catch (e) {
+                console.error("Audio init failed", e);
+                return false;
+            }
+        }
+
+        async function checkAudio() {
+            if (isSoundMuted) return false;
+            return await initAudio();
+        }
+
+        function toggleSound() {
+            isSoundMuted = !isSoundMuted;
+            const btn = document.getElementById('btn-sound-toggle');
+            if (isSoundMuted) {
+                btn.innerHTML = '🔇 SOUND OFF';
+                if (isToneInitialized) Tone.Destination.mute = true;
+            } else {
+                btn.innerHTML = '🔊 SOUND ON';
+                if (isToneInitialized) Tone.Destination.mute = false;
+                initAudio(); // Try to start if not already started
+            }
+        }
+
+        async function playStarSound() { 
+            if (!await checkAudio()) return;
+            const now = Tone.now();
+            // Bright "ding-ding"
+            starSynth.triggerAttackRelease("E5", "16n", now);
+            starSynth.triggerAttackRelease("A5", "16n", now + 0.1);
+        }
+        
+        async function playStarRemoveSound() { 
+            if (!await checkAudio()) return;
+            const now = Tone.now();
+            // Soft descending tone
+            uiSynth.triggerAttackRelease("E4", "16n", now);
+            uiSynth.triggerAttackRelease("C4", "16n", now + 0.15);
+        }
+
+        async function playDeductionSound() {
+            if (!await checkAudio()) return;
+            const now = Tone.now();
+            // Low subtle bonk
+            deductSynth.triggerAttackRelease("C2", "8n", now);
+        }
+
+        async function playUndoSound() {
+            if (!await checkAudio()) return;
+            const now = Tone.now();
+            // Neutral recovery chime
+            starSynth.triggerAttackRelease("G4", "16n", now);
+            starSynth.triggerAttackRelease("C5", "16n", now + 0.1);
+        }
+
+        async function playNewLeaderSound() { 
+            if (!await checkAudio()) return;
+            const now = Tone.now(); 
+            // Exciting short fanfare
+            fanfareSynth.triggerAttackRelease(["C5", "E5"], "16n", now);
+            fanfareSynth.triggerAttackRelease(["E5", "G5"], "16n", now + 0.15);
+            fanfareSynth.triggerAttackRelease(["G5", "C6"], "8n", now + 0.3);
+        }
+
+        async function playUISound() {
+            if (!await checkAudio()) return;
+            uiSynth.triggerAttackRelease("G4", "32n");
+        }
+
+        async function playPodiumSound(rank) {
+            if (!await checkAudio()) return;
+            const now = Tone.now();
+            // Progressively higher chords
+            if (rank === 3) {
+                fanfareSynth.triggerAttackRelease(["E4", "G4"], "4n", now);
+            } else if (rank === 2) {
+                fanfareSynth.triggerAttackRelease(["G4", "B4"], "4n", now);
+            } else if (rank === 1) {
+                fanfareSynth.triggerAttackRelease(["C5", "E5", "G5"], "4n", now);
+            }
+        }
+        
+        async function playVictorySound() { 
+            if (!await checkAudio()) return;
+            const now = Tone.now();
+            // Triumphant final chord
+            fanfareSynth.triggerAttackRelease(["C4", "G4", "C5", "E5"], "1m", now);
+        }
+
+        function getRankedStudents() {
+            let ranked = students.map(s => {
+                const roundFinal = Math.max(0, s.currentScore - s.deductions);
+                return {
+                    ...s,
+                    roundFinal: roundFinal,
+                    grandTotal: s.totalScore + roundFinal,
+                    grandSpelling: s.totalSpelling + s.currentScore,
+                    grandDeductions: s.totalDeductions + s.deductions
+                };
+            });
+
+            let uniqueScores = [...new Set(ranked.map(s => s.grandTotal))].sort((a, b) => b - a);
+            ranked = ranked.map(s => ({ ...s, rank: uniqueScores.indexOf(s.grandTotal) + 1 }));
+
+            if (sortBy === 'score') {
+                ranked.sort((a, b) => {
+                    if (b.grandTotal !== a.grandTotal) return b.grandTotal - a.grandTotal;
+                    return a.name.localeCompare(b.name);
+                });
+            } else {
+                ranked.sort((a, b) => a.name.localeCompare(b.name));
+            }
+            return ranked;
+        }
+
+        function snapshotRects() {
+            const rects = {};
+            document.querySelectorAll('.student-card').forEach(card => {
+                rects[card.dataset.id] = card.getBoundingClientRect();
+            });
+            return rects;
+        }
+
+        function applyFLIP(oldRects) {
+            const cards = document.querySelectorAll('.student-card');
+            cards.forEach(card => {
+                const id = card.dataset.id;
+                const oldRect = oldRects[id];
+                if (oldRect) {
+                    const newRect = card.getBoundingClientRect();
+                    const dx = oldRect.left - newRect.left;
+                    const dy = oldRect.top - newRect.top;
+                    if (dx !== 0 || dy !== 0) {
+                        card.style.transform = `translate(${dx}px, ${dy}px)`;
+                        card.style.transition = 'none';
+                        card.style.zIndex = '10';
+                    }
+                }
+            });
+            
+            document.body.offsetHeight; // Force reflow
+            
+            cards.forEach(card => {
+                if (card.style.transform) {
+                    card.style.transform = '';
+                    card.style.transition = 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                    setTimeout(() => { card.style.zIndex = ''; }, 500);
+                }
+            });
+        }
+
+        function render() {
+            const appDiv = document.getElementById('app');
+            let scrollPos = 0;
+            const scrollContainer = document.getElementById('scroll-container');
+            if (scrollContainer) scrollPos = scrollContainer.scrollTop;
+
+            if (currentView === 'scoreboard') appDiv.innerHTML = getScoreboardHTML();
+            else appDiv.innerHTML = getResultsHTML();
+
+            const newScrollContainer = document.getElementById('scroll-container');
+            if (newScrollContainer) newScrollContainer.scrollTop = scrollPos;
+        }
+
+        function getScoreboardHTML() {
+            const rankedStudents = getRankedStudents();
+            const isScoreSort = sortBy === 'score';
+            
+            let html = `
+                <div class="glass-panel shrink-0 flex flex-col xl:flex-row gap-3 justify-between items-center p-3 sm:p-4 shadow-sm z-10">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="bg-blue-100 text-blue-800 p-2 px-4 rounded-xl text-lg font-black shadow-inner flex items-center gap-2">
+                            🏆 SPELLING <span class="bg-blue-600 text-white text-xs px-2 py-1 rounded-lg ml-2 shadow-sm">ROUND ${currentRound}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="openModal('modal-class-deduction')" class="px-3 py-2 bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 font-bold rounded-lg transition-colors shadow-sm text-sm flex items-center gap-2">
+                                🔊 CLASS NOISE
+                            </button>
+                            <button onclick="openModal('modal-history')" class="px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg transition-colors shadow-sm text-sm flex items-center gap-2">
+                                📜 HISTORY
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-wrap items-center justify-center gap-2">
+                        <button onclick="toggleSort()" class="px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg transition-colors shadow-sm text-sm flex items-center gap-2">
+                            ${isScoreSort ? '🔤 SORT BY NAME' : '🔀 SORT BY SCORE'}
+                        </button>
+                        <button onclick="openModal('modal-reset')" class="px-3 py-2 bg-white border border-slate-200 hover:bg-red-50 hover:text-red-600 text-slate-700 font-bold rounded-lg transition-colors shadow-sm text-sm flex items-center gap-2">
+                            🔄 RESET
+                        </button>
+                        <button onclick="openModal('modal-next-round')" class="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg transition-transform hover:scale-105 shadow-md text-sm flex items-center gap-2 ml-2">
+                            ⏩ NEXT ROUND
+                        </button>
+                        <button onclick="openModal('modal-finish')" class="px-5 py-2 bg-green-500 hover:bg-green-600 text-white font-black rounded-lg transition-transform hover:scale-105 shadow-md text-sm flex items-center gap-2 ml-2">
+                            🏆 FINISH
+                        </button>
+                    </div>
+                </div>
+
+                <div id="scroll-container" class="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-slate-50">
+                    <div class="max-w-[1600px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 grid-cols-4-xl gap-4 pb-20">
+            `;
+
+            rankedStudents.forEach((student, index) => {
+                let cardClass = 'bg-white border-slate-200 shadow-sm hover:shadow-md';
+                const rankDisplay = isScoreSort ? student.rank : '-';
+                
+                if (isInitialLoad) cardClass += ' fade-in';
+                let inlineStyle = ``;
+                if (isInitialLoad) inlineStyle += `animation-delay: ${Math.min(index * 15, 300)}ms;`;
+
+                const isTarget = lastAction.id === student.id && (Date.now() - lastAction.timestamp < 100);
+                const popScoreClass = (isTarget && lastAction.type === 'up') ? 'score-pop' : '';
+                const deductionFlicker = (isTarget && lastAction.type === 'down') ? 'bg-red-100 border-red-300' : 'bg-red-50/50 border-red-100';
+
+                html += `
+                    <div data-id="${student.id}" class="student-card ${cardClass} border rounded-2xl p-3 flex flex-col gap-[6px] transition-colors duration-300 relative" style="${inlineStyle}">
+                        
+                        <!-- Rank & Name -->
+                        <div class="flex items-center justify-between w-full mb-1">
+                            <div class="flex items-center gap-3 w-full">
+                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-black text-sm shadow-inner border border-slate-200">
+                                    ${rankDisplay}
+                                </div>
+                                <div class="font-bold text-base text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis w-full" title="${student.name}">
+                                    ${student.name}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Spelling Stars -->
+                        <div class="flex justify-between items-center bg-slate-50 border border-slate-100 p-[6px] rounded-xl">
+                            <div class="flex items-center gap-[2px]">
+                                ${generateStarsHTML(student.id, student.currentScore, (isTarget ? lastAction.oldScore : null))}
+                            </div>
+                            <div class="font-bold text-sm text-slate-600 px-2 w-10 text-right score-anchor relative">
+                                <span class="${popScoreClass}">${student.currentScore}/10</span>
+                            </div>
+                        </div>
+
+                        <!-- Behaviour Deductions -->
+                        <div class="flex justify-between items-center ${deductionFlicker} p-1.5 rounded-xl transition-colors duration-300">
+                            <div class="flex items-center gap-1">
+                                <button onclick="applyIndivDeduction(${student.id}, 1, event)" class="w-8 h-7 flex items-center justify-center rounded bg-white text-red-600 font-bold text-xs shadow-sm border border-red-100 hover:bg-red-50 transition-colors">-1</button>
+                                <button onclick="applyIndivDeduction(${student.id}, 2, event)" class="w-8 h-7 flex items-center justify-center rounded bg-white text-red-600 font-bold text-xs shadow-sm border border-red-100 hover:bg-red-50 transition-colors">-2</button>
+                                <button onclick="undoIndivDeduction(${student.id}, event)" class="px-2 h-7 flex items-center justify-center rounded bg-white text-slate-500 font-bold text-[10px] shadow-sm border border-slate-200 hover:bg-slate-50 transition-colors ml-1" title="Undo Last Deduction">UNDO</button>
+                            </div>
+                            <div class="font-bold text-sm text-red-500 px-2 deduction-anchor relative">
+                                ⚠️ -${student.deductions}
+                            </div>
+                        </div>
+
+                        <!-- Final Score Math -->
+                        <div class="flex justify-between items-center px-1 pt-1 mt-1">
+                            <span class="text-[10px] font-bold text-slate-400 tracking-widest uppercase">TOTAL STARS</span>
+                            <span class="font-black text-xl text-indigo-700">⭐ ${student.grandTotal}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div></div>`;
+            return html;
+        }
+
+        function generateStarsHTML(studentId, currentScore, oldScore = null) {
+            let starsHtml = '';
+            for (let i = 1; i <= 10; i++) {
+                const isFilled = i <= currentScore;
+                const opacityClass = isFilled ? 'grayscale-0 opacity-100 drop-shadow-sm' : 'grayscale opacity-30 hover:opacity-60';
+                let popClass = (oldScore !== null && isFilled && i > oldScore) ? 'star-pop' : '';
+
+                starsHtml += `
+                    <span onclick="setSpellingScore(${studentId}, ${i}, event)" 
+                          class="${opacityClass} ${popClass} text-lg sm:text-xl cursor-pointer hover:scale-125 hover:-translate-y-1 transition-all inline-block select-none px-[1px]"
+                          title="${i} point${i>1?'s':''} for Round ${currentRound}">
+                        ⭐
+                    </span>
+                `;
+            }
+            return starsHtml;
+        }
+
+        function getResultsHTML() {
+            sortBy = 'score';
+            const rankedStudents = getRankedStudents();
+            
+            const rank1Students = rankedStudents.filter(s => s.rank === 1);
+            const rank2Students = rankedStudents.filter(s => s.rank === 2);
+            const rank3Students = rankedStudents.filter(s => s.rank === 3);
+            const otherStudents = rankedStudents.filter(s => s.rank > 3);
+
+            let html = `
+                <div class="glass-panel shrink-0 flex gap-3 justify-between items-center p-4 shadow-sm z-10">
+                    <button onclick="backToScoreboard()" class="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg transition-colors shadow-sm text-sm flex items-center gap-2">
+                        ⬅️ BACK TO SCOREBOARD
+                    </button>
+                    <button onclick="openModal('modal-new')" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg transition-colors shadow-sm text-sm flex items-center gap-2">
+                        🔄 NEW COMPETITION
+                    </button>
+                </div>
+
+                <div id="scroll-container" class="flex-1 overflow-y-auto bg-slate-50 p-4 pb-20">
+                    <div class="max-w-5xl mx-auto">
+                        
+                        <div class="text-center mb-12 mt-6 slide-up">
+                            <h1 class="text-5xl font-black text-slate-800 tracking-tight mb-2">🏆 FINAL RESULTS</h1>
+                            <h2 class="text-xl font-bold text-slate-500 tracking-widest uppercase">2M Spelling Competition</h2>
+                        </div>
+
+                        <!-- Podium Area -->
+                        <div class="flex flex-col sm:flex-row items-end justify-center gap-4 mb-16 px-4 h-auto sm:h-80" style="perspective: 1000px;">
+                            
+                            <!-- 2nd Place -->
+                            <div class="flex-1 flex flex-col items-center justify-end max-w-[250px] w-full mx-auto order-2 sm:order-1">
+                                <div id="podium-names-2" class="mb-3 text-center w-full transition-opacity duration-500 opacity-0">
+                                    ${generatePodiumNames(rank2Students, 'text-slate-600')}
+                                </div>
+                                <div id="podium-block-2" class="w-full h-40 sm:h-48 podium-2 rounded-t-2xl shadow-lg flex flex-col items-center justify-start pt-4 relative overflow-hidden transform podium-hidden transition-all duration-700 ease-out">
+                                    <div class="absolute inset-0 bg-white/20"></div>
+                                    <span class="text-4xl relative z-10 drop-shadow-md">🥈</span>
+                                    <span class="font-black text-slate-700 mt-2 relative z-10">2ND</span>
+                                    ${generatePodiumStats(rank2Students)}
+                                </div>
+                            </div>
+
+                            <!-- 1st Place -->
+                            <div class="flex-1 flex flex-col items-center justify-end max-w-[280px] w-full mx-auto order-1 sm:order-2 z-10">
+                                <div id="podium-names-1" class="mb-3 text-center w-full transition-opacity duration-500 opacity-0">
+                                    ${generatePodiumNames(rank1Students, 'text-yellow-600 font-black text-lg')}
+                                </div>
+                                <div id="podium-block-1" class="w-full h-48 sm:h-64 podium-1 rounded-t-2xl shadow-xl flex flex-col items-center justify-start pt-6 relative overflow-hidden transform sm:-translate-y-4 podium-hidden transition-all duration-700 ease-out">
+                                    <div class="absolute inset-0 bg-white/20"></div>
+                                    <span class="text-6xl relative z-10 drop-shadow-md">🥇</span>
+                                    <span class="font-black text-yellow-800 text-xl mt-3 relative z-10">1ST</span>
+                                    ${generatePodiumStats(rank1Students, true)}
+                                </div>
+                            </div>
+
+                            <!-- 3rd Place -->
+                            <div class="flex-1 flex flex-col items-center justify-end max-w-[250px] w-full mx-auto order-3 sm:order-3">
+                                <div id="podium-names-3" class="mb-3 text-center w-full transition-opacity duration-500 opacity-0">
+                                    ${generatePodiumNames(rank3Students, 'text-amber-700')}
+                                </div>
+                                <div id="podium-block-3" class="w-full h-32 sm:h-40 podium-3 rounded-t-2xl shadow-lg flex flex-col items-center justify-start pt-4 relative overflow-hidden transform podium-hidden transition-all duration-700 ease-out">
+                                    <div class="absolute inset-0 bg-white/20"></div>
+                                    <span class="text-3xl relative z-10 drop-shadow-md">🥉</span>
+                                    <span class="font-black text-amber-900 mt-2 relative z-10">3RD</span>
+                                    ${generatePodiumStats(rank3Students)}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Other Rankings Table -->
+                        ${otherStudents.length > 0 ? `
+                        <div class="bg-white rounded-3xl shadow-md p-4 sm:p-8 slide-up overflow-hidden" style="animation-delay: 500ms;">
+                            <h3 class="text-xl font-black text-slate-800 mb-6 border-b pb-4">OTHER RANKINGS</h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse min-w-[500px]">
+                                    <thead>
+                                        <tr class="text-slate-400 text-xs sm:text-sm border-b border-slate-200">
+                                            <th class="pb-2 font-bold w-16">Rank</th>
+                                            <th class="pb-2 font-bold">Student</th>
+                                            <th class="pb-2 font-bold text-center w-24">Spelling</th>
+                                            <th class="pb-2 font-bold text-center w-24">Deduction</th>
+                                            <th class="pb-2 font-bold text-right w-24">Total Stars</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${otherStudents.map(s => `
+                                            <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                                                <td class="py-3 font-black text-slate-400 pl-2">${s.rank}</td>
+                                                <td class="py-3 font-bold text-slate-700">${s.name}</td>
+                                                <td class="py-3 text-center text-slate-600 font-semibold">${s.grandSpelling}</td>
+                                                <td class="py-3 text-center text-red-500 font-semibold">-${s.grandDeductions}</td>
+                                                <td class="py-3 text-right font-black text-indigo-600 pr-2 text-lg">⭐ ${s.grandTotal}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            return html;
+        }
+
+        function generatePodiumNames(studentsArr, extraClasses) {
+            if (studentsArr.length === 0) return `<div class="font-bold text-slate-400">NONE</div>`;
+            let html = '';
+            if (studentsArr.length > 1) html += `<div class="text-[10px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded-md inline-block mb-1 shadow-sm">TIE (${studentsArr.length})</div>`;
+            html += `<div class="flex flex-col gap-1 max-h-32 overflow-y-auto px-2">`;
+            studentsArr.forEach(s => { html += `<div class="font-bold text-sm sm:text-base leading-tight ${extraClasses}">${s.name}</div>`; });
+            html += `</div>`;
+            return html;
+        }
+
+        function generatePodiumStats(studentsArr, isFirst = false) {
+            if (studentsArr.length === 0) return '';
+            const s = studentsArr[0];
+            const pClass = isFirst ? 'text-yellow-700 bg-white/60' : 'text-slate-700 bg-white/50';
+            const detailClass = isFirst ? 'text-yellow-900/80' : 'text-slate-800/60';
+            return `
+                <span class="font-black ${pClass} mt-1 relative z-10 px-4 py-1 rounded-full mb-2 shadow-sm whitespace-nowrap">TOTAL STARS: ⭐ ${s.grandTotal}</span>
+                <div class="text-[10px] sm:text-xs font-bold ${detailClass} relative z-10 flex flex-col items-center leading-tight">
+                    <span>Spell: ${s.grandSpelling}</span>
+                    <span>Ded: -${s.grandDeductions}</span>
+                </div>
+            `;
+        }
+
+        function triggerConfetti(event) {
+            if (typeof confetti !== 'undefined') {
+                const x = event ? event.clientX / window.innerWidth : 0.5;
+                const y = event ? event.clientY / window.innerHeight : 0.5;
+                confetti({ particleCount: 40, spread: 50, origin: { x, y }, colors: ['#facc15', '#60a5fa', '#34d399', '#fb7185'], zIndex: 100 });
+            }
+        }
+
+        function triggerFloatingAnim(studentId, text, isPos) {
+            const card = document.querySelector(`.student-card[data-id="${studentId}"]`);
+            if (!card) return;
+            const targetClass = isPos ? '.score-anchor' : '.deduction-anchor';
+            const anchor = card.querySelector(targetClass);
+            if (!anchor) return;
+            
+            const floater = document.createElement('div');
+            floater.className = `floating-score ${isPos ? 'float-pos' : 'float-neg'}`;
+            floater.innerText = text;
+            anchor.appendChild(floater);
+            setTimeout(() => floater.remove(), 1000);
+        }
+
+        function executeUpdateWithFLIP(action) {
+            const rects = snapshotRects();
+            const scrollContainer = document.getElementById('scroll-container');
+            const scrollPos = scrollContainer ? scrollContainer.scrollTop : 0;
+            
+            action();
+            document.getElementById('app').innerHTML = getScoreboardHTML();
+            
+            const newScrollContainer = document.getElementById('scroll-container');
+            if (newScrollContainer) newScrollContainer.scrollTop = scrollPos;
+            applyFLIP(rects);
+        }
+
+        function setSpellingScore(studentId, newScore, event) {
+            const student = students.find(s => s.id === studentId);
+            if (!student || student.currentScore === newScore) return;
+
+            // Capture rank before update
+            const oldRanks = getRankedStudents();
+            const oldRank = oldRanks.find(s => s.id === studentId)?.rank;
+
+            const delta = newScore - student.currentScore;
+            lastAction = { id: studentId, type: delta > 0 ? 'up' : 'down', oldScore: student.currentScore, timestamp: Date.now() };
+
+            if (delta > 0) {
+                if(event) triggerConfetti(event);
+                
+                // Temporarily apply score to check if they hit rank 1
+                student.currentScore = newScore;
+                const newRanks = getRankedStudents();
+                const newRank = newRanks.find(s => s.id === studentId)?.rank;
+                student.currentScore = student.currentScore - delta; // revert for FLIP
+
+                if (oldRank > 1 && newRank === 1) {
+                    playNewLeaderSound();
+                } else {
+                    playStarSound();
+                }
+            } else {
+                playStarRemoveSound();
+            }
+
+            executeUpdateWithFLIP(() => {
+                student.currentScore = newScore;
+            });
+            
+            triggerFloatingAnim(studentId, delta > 0 ? `+${delta}` : delta, true);
+        }
+
+        function addGlobalHistory(type, amount, targetId, name) {
+            const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            globalHistory.unshift({ id: Date.now(), time, type, amount, targetId, name });
+            if (globalHistory.length > 50) globalHistory.pop();
+        }
+
+        function applyIndivDeduction(id, amount, event) {
+            const student = students.find(x => x.id === id);
+            if(!student) return;
+            
+            lastAction = { id: id, type: 'down', timestamp: Date.now() };
+            playDeductionSound();
+            
+            executeUpdateWithFLIP(() => {
+                student.deductions += amount;
+                student.deductionStack.push(amount);
+                addGlobalHistory('individual', amount, id, student.name);
+            });
+            
+            triggerFloatingAnim(id, `-${amount}`, false);
+        }
+
+        function applyClassDeduction(amount) {
+            closeModal();
+            playDeductionSound();
+            
+            executeUpdateWithFLIP(() => {
+                students.forEach(s => {
+                    s.deductions += amount;
+                    s.deductionStack.push(amount);
+                });
+                addGlobalHistory('class', amount, null, 'Whole class');
+            });
+        }
+
+        function undoIndivDeduction(id, event) {
+            const student = students.find(x => x.id === id);
+            if(!student || student.deductionStack.length === 0) return;
+            
+            lastAction = { id: id, type: 'up', timestamp: Date.now() };
+            playUndoSound();
+            
+            executeUpdateWithFLIP(() => {
+                const amt = student.deductionStack.pop();
+                student.deductions = Math.max(0, student.deductions - amt);
+            });
+        }
+
+        function undoGlobalLast() {
+            if(globalHistory.length === 0) return;
+            
+            playUndoSound();
+            executeUpdateWithFLIP(() => {
+                const last = globalHistory.shift();
+                if(last.type === 'class') {
+                    students.forEach(s => {
+                        if (s.deductionStack.length > 0) {
+                            const amt = s.deductionStack.pop();
+                            s.deductions = Math.max(0, s.deductions - amt);
+                        }
+                    });
+                } else {
+                    const s = students.find(x => x.id === last.targetId);
+                    if(s && s.deductionStack.length > 0) {
+                        const amt = s.deductionStack.pop();
+                        s.deductions = Math.max(0, s.deductions - amt);
+                    }
+                }
+            });
+            renderHistoryModal();
+        }
+
+        function toggleSort() {
+            sortBy = sortBy === 'score' ? 'name' : 'score';
+            executeUpdateWithFLIP(() => {}); // Re-renders without changing data
+        }
+
+        function backToScoreboard() {
+            playUISound();
+            currentView = 'scoreboard';
+            render();
+        }
+
+        function openModal(modalId) {
+            if (['modal-finish', 'modal-new', 'modal-reset', 'modal-next-round'].includes(modalId)) {
+                playUISound();
+            }
+            const container = document.getElementById('modal-container');
+            Array.from(container.children).forEach(m => m.classList.add('hidden'));
+            document.getElementById(modalId).classList.remove('hidden');
+            container.classList.remove('hidden');
+            container.classList.add('flex');
+            
+            if(modalId === 'modal-history') renderHistoryModal();
+        }
+
+        function closeModal() {
+            const container = document.getElementById('modal-container');
+            container.classList.add('hidden');
+            container.classList.remove('flex');
+        }
+        
+        function renderHistoryModal() {
+            const list = document.getElementById('history-list');
+            const btn = document.getElementById('btn-undo-global');
+            
+            if(globalHistory.length === 0) {
+                list.innerHTML = `<div class="p-4 text-center text-slate-500 font-medium text-sm">No deductions recorded yet.</div>`;
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                list.innerHTML = globalHistory.map(h => `
+                    <div class="flex justify-between items-center bg-white p-2 border border-slate-100 rounded-lg shadow-sm">
+                        <div class="flex flex-col">
+                            <span class="text-[10px] font-bold text-slate-400">${h.time}</span>
+                            <span class="font-bold text-slate-700 text-xs">${h.name}</span>
+                        </div>
+                        <span class="font-black text-red-500 text-sm">-${h.amount}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function confirmReset() {
+            students.forEach(s => {
+                s.totalScore = 0; s.totalSpelling = 0; s.totalDeductions = 0;
+                s.currentScore = 0; s.deductions = 0; s.deductionStack = [];
+            });
+            globalHistory = [];
+            currentRound = 1;
+            closeModal();
+            render();
+        }
+
+        function confirmNextRound() {
+            students.forEach(s => {
+                s.totalSpelling += s.currentScore;
+                s.totalDeductions += s.deductions;
+                s.totalScore += Math.max(0, s.currentScore - s.deductions);
+                
+                s.currentScore = 0; 
+                s.deductions = 0;
+                s.deductionStack = [];
+            });
+            globalHistory = [];
+            currentRound++;
+            playUISound();
+            closeModal();
+            render();
+        }
+
+        function confirmFinish() {
+            closeModal();
+            currentView = 'results';
+            playUISound();
+            render();
+            
+            // Sequenced podium reveal with corresponding sounds
+            setTimeout(() => {
+                const p3 = document.getElementById('podium-block-3'); const n3 = document.getElementById('podium-names-3');
+                if (p3) p3.classList.remove('podium-hidden'); if (n3) n3.classList.remove('opacity-0');
+                playPodiumSound(3);
+            }, 300);
+            
+            setTimeout(() => {
+                const p2 = document.getElementById('podium-block-2'); const n2 = document.getElementById('podium-names-2');
+                if (p2) p2.classList.remove('podium-hidden'); if (n2) n2.classList.remove('opacity-0');
+                playPodiumSound(2);
+            }, 1000);
+            
+            setTimeout(() => {
+                const p1 = document.getElementById('podium-block-1'); const n1 = document.getElementById('podium-names-1');
+                if (p1) p1.classList.remove('podium-hidden'); if (n1) n1.classList.remove('opacity-0');
+                if (typeof confetti !== 'undefined') confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 }, colors: ['#facc15', '#fbbf24', '#ffffff'], zIndex: 100 });
+                playPodiumSound(1);
+            }, 1800);
+            
+            setTimeout(() => {
+                const n1 = document.getElementById('podium-names-1');
+                if (n1) n1.classList.add('winner-pop');
+                playVictorySound();
+            }, 2300);
+        }
+
+        function confirmNewCompetition() {
+            playUISound();
+            confirmReset();
+            currentView = 'scoreboard';
+            isInitialLoad = true;
+            render();
+            setTimeout(() => { isInitialLoad = false; }, 100);
+        }
+
+        window.onload = () => {
+            render();
+            setTimeout(() => { isInitialLoad = false; }, 100);
+        };
+    </script>
+</body>
+</html>

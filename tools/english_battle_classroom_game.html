@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>English Battle - Classroom Game</title>
+    <!-- Tailwind CSS for rapid styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for a playful, readable look -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --red-theme: #EF4444;
+            --blue-theme: #3B82F6;
+        }
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #F8FAFC;
+            /* Prevent accidental selection on touchscreens */
+            user-select: none; 
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        h1, h2, h3, .font-display {
+            font-family: 'Fredoka One', cursive;
+        }
+        
+        /* Custom Animations */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop { animation: pop 0.3s ease-out; }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px) rotate(-2deg); }
+            75% { transform: translateX(5px) rotate(2deg); }
+        }
+        .animate-shake { animation: shake 0.4s ease-in-out; }
+
+        @keyframes spin-fast {
+            from { transform: rotate(0deg) scale(1); }
+            to { transform: rotate(1080deg) scale(1.2); }
+        }
+        .animate-spin-fast { animation: spin-fast 1s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        @keyframes slide-in-top {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-top { animation: slide-in-top 0.5s ease-out forwards; }
+
+        /* Scramble Word specific styles */
+        .scramble-word {
+            transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+            cursor: pointer;
+            will-change: transform;
+        }
+        .scramble-word:hover, .scramble-word:active {
+            filter: brightness(1.1);
+            transform: scale(1.05) !important; /* Override inline physics transform temporarily on hover */
+            z-index: 50;
+        }
+        
+        /* Tug of war rope transition */
+        #rope-container { transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+        /* Custom scrollbar for teacher panel */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Utility classes for layout */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 4px solid rgba(255,255,255,0.5);
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col text-slate-800 relative">
+
+    <!-- Background Layer (Team Colors & Total Scores) -->
+    <div class="absolute inset-0 flex z-0">
+        <div id="bg-red" class="w-1/2 h-full bg-red-500 text-white flex flex-col items-start justify-end p-8 sm:p-12 transition-all duration-300">
+            <h1 class="text-4xl sm:text-6xl md:text-8xl opacity-80 uppercase tracking-widest drop-shadow-md">Game Red</h1>
+            <div id="score-total-red" class="font-display text-8xl sm:text-[10rem] md:text-[14rem] leading-none drop-shadow-lg">0</div>
+        </div>
+        <div id="bg-blue" class="w-1/2 h-full bg-blue-500 text-white flex flex-col items-end justify-end p-8 sm:p-12 transition-all duration-300">
+            <h1 class="text-4xl sm:text-6xl md:text-8xl opacity-80 uppercase tracking-widest drop-shadow-md">Game Blue</h1>
+            <div id="score-total-blue" class="font-display text-8xl sm:text-[10rem] md:text-[14rem] leading-none drop-shadow-lg">0</div>
+        </div>
+    </div>
+
+    <!-- HUD Layer (Top Bar) -->
+    <div class="absolute top-0 inset-x-0 z-20 pointer-events-none p-4 sm:p-8 flex justify-between items-start">
+        <div id="round-indicator" class="pointer-events-auto bg-white/90 backdrop-blur rounded-2xl px-6 py-3 shadow-xl border-b-4 border-slate-300 transform -translate-y-full transition-transform duration-500">
+            <h2 id="round-title" class="text-2xl sm:text-3xl font-display text-slate-800">Ready to Play!</h2>
+            <div id="round-subtitle" class="text-sm sm:text-base font-bold text-slate-500 uppercase">Total Game Score</div>
+        </div>
+
+        <div id="timer-display" class="pointer-events-auto bg-amber-400 text-amber-900 border-b-4 border-amber-600 rounded-3xl px-8 py-3 shadow-2xl flex items-center justify-center transform -translate-y-full transition-transform duration-500 cursor-pointer" onclick="toggleTimer()">
+            <span id="timer-text" class="font-display text-4xl sm:text-5xl tabular-nums tracking-wider">00:00</span>
+        </div>
+    </div>
+
+    <!-- Main Game Board Layer -->
+    <div class="absolute inset-0 z-10 flex items-center justify-center p-4 sm:p-12 mt-16 sm:mt-0 pointer-events-none">
+        <div id="game-board" class="glass-panel w-full max-w-7xl h-[85%] rounded-[2rem] sm:rounded-[3rem] shadow-2xl flex flex-col pointer-events-auto overflow-hidden relative transition-all duration-500">
+            <!-- Dynamic content injected here via JS -->
+            <div id="game-content" class="w-full h-full flex flex-col p-6 sm:p-8 relative"></div>
+        </div>
+    </div>
+
+    <!-- Teacher Controls Button (Bottom Right) -->
+    <button onclick="openTeacherPanel()" class="absolute bottom-4 right-4 sm:bottom-8 sm:right-8 z-50 bg-slate-800 hover:bg-slate-700 text-white rounded-full p-4 shadow-xl hover:scale-110 transition-transform flex items-center justify-center border-2 border-white/20">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+    </button>
+
+    <!-- Teacher Panel Modal (Hidden by default) -->
+    <div id="teacher-panel" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[100] hidden flex justify-center items-center p-4">
+        <div class="bg-white rounded-3xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden relative border-4 border-slate-700">
+            <!-- Header -->
+            <div class="bg-slate-800 text-white p-4 flex justify-between items-center">
+                <h2 class="text-2xl font-display flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg> Teacher Controls</h2>
+                <button onclick="closeTeacherPanel()" class="text-slate-300 hover:text-white p-2 rounded-full hover:bg-slate-700"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+            </div>
+
+            <!-- Content Area (Scrollable) -->
+            <div class="p-6 overflow-y-auto flex-grow flex flex-col md:flex-row gap-6">
+                <!-- Left Column: Scoring & Timer -->
+                <div class="flex-1 space-y-6">
+                    <!-- Scoring Section -->
+                    <div class="bg-slate-100 rounded-2xl p-4 border border-slate-200">
+                        <h3 class="font-bold text-lg mb-3 border-b pb-2 flex justify-between items-center">
+                            Manual Scoring 
+                            <select id="score-target" class="text-sm font-normal bg-white border rounded p-1" onchange="State.settings.scoreTarget = this.value">
+                                <option value="total">Apply to Total Score</option>
+                                <option value="round">Apply to Current Round</option>
+                            </select>
+                        </h3>
+                        <div class="flex gap-4">
+                            <!-- Red Team Controls -->
+                            <div class="flex-1 bg-red-100 rounded-xl p-3 border-2 border-red-200">
+                                <div class="font-bold text-red-700 mb-2 text-center">GAME RED</div>
+                                <div class="grid grid-cols-4 gap-1 mb-2">
+                                    <button onclick="adjustScore('red', 1)" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded shadow text-sm">+1</button>
+                                    <button onclick="adjustScore('red', 2)" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded shadow text-sm">+2</button>
+                                    <button onclick="adjustScore('red', 5)" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded shadow text-sm">+5</button>
+                                    <button onclick="adjustScore('red', 10)" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded shadow text-sm">+10</button>
+                                </div>
+                                <div class="grid grid-cols-4 gap-1">
+                                    <button onclick="adjustScore('red', -1)" class="bg-red-200 hover:bg-red-300 text-red-800 font-bold py-1 rounded text-xs">-1</button>
+                                    <button onclick="adjustScore('red', -2)" class="bg-red-200 hover:bg-red-300 text-red-800 font-bold py-1 rounded text-xs">-2</button>
+                                    <button onclick="adjustScore('red', -5)" class="bg-red-200 hover:bg-red-300 text-red-800 font-bold py-1 rounded text-xs">-5</button>
+                                    <button onclick="adjustScore('red', -10)" class="bg-red-200 hover:bg-red-300 text-red-800 font-bold py-1 rounded text-xs">-10</button>
+                                </div>
+                            </div>
+                            <!-- Blue Team Controls -->
+                            <div class="flex-1 bg-blue-100 rounded-xl p-3 border-2 border-blue-200">
+                                <div class="font-bold text-blue-700 mb-2 text-center">GAME BLUE</div>
+                                <div class="grid grid-cols-4 gap-1 mb-2">
+                                    <button onclick="adjustScore('blue', 1)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 rounded shadow text-sm">+1</button>
+                                    <button onclick="adjustScore('blue', 2)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 rounded shadow text-sm">+2</button>
+                                    <button onclick="adjustScore('blue', 5)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 rounded shadow text-sm">+5</button>
+                                    <button onclick="adjustScore('blue', 10)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 rounded shadow text-sm">+10</button>
+                                </div>
+                                <div class="grid grid-cols-4 gap-1">
+                                    <button onclick="adjustScore('blue', -1)" class="bg-blue-200 hover:bg-blue-300 text-blue-800 font-bold py-1 rounded text-xs">-1</button>
+                                    <button onclick="adjustScore('blue', -2)" class="bg-blue-200 hover:bg-blue-300 text-blue-800 font-bold py-1 rounded text-xs">-2</button>
+                                    <button onclick="adjustScore('blue', -5)" class="bg-blue-200 hover:bg-blue-300 text-blue-800 font-bold py-1 rounded text-xs">-5</button>
+                                    <button onclick="adjustScore('blue', -10)" class="bg-blue-200 hover:bg-blue-300 text-blue-800 font-bold py-1 rounded text-xs">-10</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Timer Section -->
+                    <div class="bg-slate-100 rounded-2xl p-4 border border-slate-200">
+                        <h3 class="font-bold text-lg mb-3 border-b pb-2 flex justify-between items-center">
+                            Timer Controls
+                            <span id="teacher-timer-display" class="font-mono bg-slate-800 text-amber-400 px-3 py-1 rounded text-xl">00:00</span>
+                        </h3>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <button onclick="setTimer(15)" class="bg-white border hover:bg-amber-50 px-3 py-1 rounded font-bold">15s</button>
+                            <button onclick="setTimer(30)" class="bg-white border hover:bg-amber-50 px-3 py-1 rounded font-bold">30s</button>
+                            <button onclick="setTimer(45)" class="bg-white border hover:bg-amber-50 px-3 py-1 rounded font-bold">45s</button>
+                            <button onclick="setTimer(60)" class="bg-white border hover:bg-amber-50 px-3 py-1 rounded font-bold">60s</button>
+                            <button onclick="setTimer(90)" class="bg-white border hover:bg-amber-50 px-3 py-1 rounded font-bold">90s</button>
+                            <div class="flex items-center ml-auto">
+                                <input type="number" id="custom-timer-input" class="w-16 border rounded px-2 py-1 text-center" placeholder="Secs">
+                                <button onclick="setCustomTimer()" class="bg-slate-200 hover:bg-slate-300 px-3 py-1 rounded ml-1 text-sm font-bold">Set</button>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="toggleTimer()" id="btn-timer-toggle" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl shadow text-lg">▶ Start Timer</button>
+                            <button onclick="resetTimer()" class="bg-slate-400 hover:bg-slate-500 text-white font-bold px-6 rounded-xl shadow">Reset</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Game Flow -->
+                    <div class="bg-slate-100 rounded-2xl p-4 border border-slate-200">
+                         <h3 class="font-bold text-lg mb-3 border-b pb-2">Game Flow</h3>
+                         <div class="grid grid-cols-2 gap-3">
+                            <button onclick="showNextReps()" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 rounded-lg shadow col-span-2">🔄 Call Next Representatives</button>
+                            <button onclick="confirmResetRound()" class="bg-orange-400 hover:bg-orange-500 text-white font-bold py-2 rounded-lg shadow">Reset Current Round</button>
+                            <button onclick="confirmResetGame()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg shadow">Reset Entire Game</button>
+                         </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Settings & Editors -->
+                <div class="flex-1 space-y-6 flex flex-col">
+                    <div class="bg-slate-100 rounded-2xl p-4 border border-slate-200 flex-grow flex flex-col">
+                        <div class="flex justify-between items-center mb-3 border-b pb-2">
+                            <h3 class="font-bold text-lg">Question Editor</h3>
+                            <select id="editor-round-select" class="bg-white border rounded p-1 text-sm" onchange="renderEditor()">
+                                <option value="1">Round 1 (Sentences)</option>
+                                <option value="2">Round 2 (Fill in Blank)</option>
+                            </select>
+                        </div>
+                        
+                        <div id="editor-container" class="flex-grow overflow-y-auto bg-white rounded border p-3 min-h-[250px]">
+                            <!-- Editor content injected here -->
+                        </div>
+                        
+                        <div class="mt-4 pt-3 border-t flex justify-between items-center">
+                             <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-600">
+                                <input type="checkbox" id="toggle-sound" checked onchange="State.settings.sound = this.checked" class="w-5 h-5 accent-slate-800">
+                                🔊 Enable Sound Effects
+                            </label>
+                            <button onclick="resetQuestionsToDefault()" class="text-sm text-slate-500 hover:text-red-500 underline">Reset to Default Questions</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full Screen Confetti Canvas -->
+    <canvas id="confetti-canvas" class="fixed inset-0 z-[60] pointer-events-none hidden"></canvas>
+
+    <!-- Modal Overlay for custom alerts -->
+    <div id="alert-modal" class="fixed inset-0 bg-slate-900/80 z-[110] hidden flex justify-center items-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl max-w-md w-full p-8 text-center shadow-2xl animate-pop">
+            <h3 id="alert-title" class="text-3xl font-display text-slate-800 mb-4">Are you sure?</h3>
+            <p id="alert-msg" class="text-lg text-slate-600 mb-8">This action cannot be undone.</p>
+            <div class="flex gap-4 justify-center">
+                <button onclick="closeAlert()" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-3 rounded-xl">Cancel</button>
+                <button id="alert-confirm-btn" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl shadow-lg">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. STATE & DATA ---
+        
+        // Default Question Banks suitable for Year 2 (8 years old)
+        const DEFAULT_QUESTIONS = {
+            round1: [
+                { id: 1, text: "The cat is under the table.", points: 5 },
+                { id: 2, text: "I like red apples.", points: 5 },
+                { id: 3, text: "The boy is playing football.", points: 5 },
+                { id: 4, text: "She has a blue bag.", points: 5 },
+                { id: 5, text: "We go to school every day.", points: 5 },
+                { id: 6, text: "My favorite color is yellow.", points: 5 },
+                { id: 7, text: "The dog is eating a bone.", points: 5 },
+                { id: 8, text: "I can jump very high.", points: 5 },
+                { id: 9, text: "They are reading a book.", points: 5 },
+                { id: 10, text: "A frog is small and green.", points: 5 }
+            ],
+            round2: [
+                { id: 1, text: "I ___ a student.", options: ["am", "is", "are", "be"], answer: "am" },
+                { id: 2, text: "She ___ a pencil.", options: ["have", "has", "having", "had"], answer: "has" },
+                { id: 3, text: "They ___ playing outside.", options: ["is", "am", "are", "was"], answer: "are" },
+                { id: 4, text: "___ you like ice cream?", options: ["Do", "Does", "Are", "Is"], answer: "Do" },
+                { id: 5, text: "He ___ not like carrots.", options: ["do", "doing", "does", "done"], answer: "does" },
+                { id: 6, text: "The apple ___ red.", options: ["am", "is", "are", "be"], answer: "is" },
+                { id: 7, text: "We ___ happy today.", options: ["is", "are", "am", "be"], answer: "are" },
+                { id: 8, text: "It ___ a sunny day.", options: ["are", "am", "is", "be"], answer: "is" },
+                { id: 9, text: "I ___ two brothers.", options: ["has", "having", "had", "have"], answer: "have" },
+                { id: 10, text: "___ she your sister?", options: ["Are", "Is", "Am", "Do"], answer: "Is" }
+            ],
+            round3_challenges: [
+                { type: 'vocab', q: 'Which animal says "moo"?', opts: ['🐕 Dog', '🐄 Cow', '🐈 Cat'], a: '🐄 Cow', pts: 5 },
+                { type: 'tf', q: 'An elephant is very small.', opts: ['TRUE', 'FALSE'], a: 'FALSE', pts: 3 },
+                { type: 'odd', q: 'Find the odd one out:', opts: ['Apple', 'Banana', 'Car', 'Orange'], a: 'Car', pts: 5 },
+                { type: 'complete', q: 'I sleep in a ___.', opts: ['Kitchen', 'Bathroom', 'Bedroom'], a: 'Bedroom', pts: 4 },
+                { type: 'teacher', q: '🎤 TEACHER\'S CHALLENGE', desc: 'Teacher asks a question! Correct answer = +10 Points!', pts: 10, isManual: true }
+            ]
+        };
+
+        // Main Application State
+        const State = {
+            teams: {
+                red: { total: 0, round: 0 },
+                blue: { total: 0, round: 0 }
+            },
+            currentRound: 0, // 0 = start menu, 1, 2, 3
+            view: 'start', // 'start', 'next_rep', 'play', 'round_end', 'final_score'
+            timer: { time: 0, max: 60, intervalId: null, active: false },
+            settings: { scoreTarget: 'total', sound: true },
+            questions: { ...DEFAULT_QUESTIONS },
+            // Round specific runtime states
+            r1: { 
+                red: { currentQ: null, words: [], sentence: [] },
+                blue: { currentQ: null, words: [], sentence: [] },
+                animFrame: null,
+                completed: false
+            },
+            r2: { currentQIndex: 0 },
+            r3: { isSpinning: false, currentChallenge: null }
+        };
+
+        // Load questions from local storage if available
+        try {
+            const savedQ = localStorage.getItem('eb_questions');
+            if (savedQ) State.questions = JSON.parse(savedQ);
+        } catch(e) { console.warn("Could not load saved questions", e); }
+
+        function saveQuestions() {
+            localStorage.setItem('eb_questions', JSON.stringify(State.questions));
+        }
+
+        // --- 2. AUDIO SYNTHESIZER ---
+        const AudioSys = {
+            ctx: null,
+            init: function() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            },
+            play: function(freq, type = 'sine', duration = 0.5, vol = 0.1) {
+                if (!State.settings.sound) return;
+                try {
+                    this.init();
+                    if(this.ctx.state === 'suspended') this.ctx.resume();
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) { console.log("Audio play failed"); }
+            },
+            correct: () => { AudioSys.play(523.25, 'sine', 0.1); setTimeout(()=>AudioSys.play(659.25, 'sine', 0.3), 100); },
+            wrong: () => { AudioSys.play(300, 'sawtooth', 0.2); setTimeout(()=>AudioSys.play(250, 'sawtooth', 0.3), 150); },
+            tick: () => AudioSys.play(800, 'square', 0.05, 0.01),
+            timeup: () => { AudioSys.play(400, 'sawtooth', 0.5, 0.2); setTimeout(()=>AudioSys.play(300, 'sawtooth', 0.8, 0.2), 300); },
+            tada: () => { 
+                AudioSys.play(440, 'square', 0.1); 
+                setTimeout(()=>AudioSys.play(554, 'square', 0.1), 100); 
+                setTimeout(()=>AudioSys.play(659, 'square', 0.4), 200); 
+                setTimeout(()=>AudioSys.play(880, 'square', 0.6), 400); 
+            },
+            pop: () => AudioSys.play(600, 'sine', 0.1, 0.05)
+        };
+
+        // --- 3. DOM UTILITIES & CORE FUNCTIONS ---
+
+        const el = (id) => document.getElementById(id);
+        
+        function updateScoresUI() {
+            el('score-total-red').innerText = State.teams.red.total;
+            el('score-total-blue').innerText = State.teams.blue.total;
+        }
+
+        // Animate score change (floating text over background)
+        function animateScoreChange(team, amount) {
+            const bgEl = el(`bg-${team}`);
+            const floatEl = document.createElement('div');
+            floatEl.className = `absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-6xl font-display text-white drop-shadow-lg z-50 animate-slide-top ${amount > 0 ? 'text-green-300' : 'text-red-300'}`;
+            floatEl.innerText = amount > 0 ? `+${amount}` : amount;
+            bgEl.appendChild(floatEl);
+            
+            const scoreEl = el(`score-total-${team}`);
+            scoreEl.classList.add(amount > 0 ? 'animate-pop' : 'animate-shake');
+            
+            if(amount > 0) AudioSys.correct(); else AudioSys.wrong();
+
+            setTimeout(() => {
+                if(floatEl.parentNode) floatEl.parentNode.removeChild(floatEl);
+                scoreEl.classList.remove('animate-pop', 'animate-shake');
+            }, 600);
+        }
+
+        function adjustScore(team, amount) {
+            if (State.settings.scoreTarget === 'total') {
+                State.teams[team].total = Math.max(0, State.teams[team].total + amount);
+            } else {
+                State.teams[team].round = Math.max(0, State.teams[team].round + amount);
+                // Also visually update total if we are forcing it, but based on rules round score is separate.
+                // For simplicity, manual adjustments to 'round' in R2 affect rope, in other rounds maybe just display.
+                if(State.currentRound === 2 && State.view === 'play') {
+                    updateR2Rope();
+                }
+            }
+            updateScoresUI();
+            animateScoreChange(team, amount);
+        }
+
+        // --- 4. TIMER SYSTEM ---
+
+        function updateTimerUI() {
+            const mins = Math.floor(State.timer.time / 60);
+            const secs = State.timer.time % 60;
+            const formatted = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            
+            el('timer-text').innerText = formatted;
+            el('teacher-timer-display').innerText = formatted;
+
+            const tDisplay = el('timer-display');
+            tDisplay.classList.remove('bg-amber-400', 'bg-red-500', 'text-amber-900', 'text-white', 'animate-pulse');
+            
+            if (State.timer.time <= 5 && State.timer.time > 0) {
+                tDisplay.classList.add('bg-red-500', 'text-white', 'animate-pulse', 'scale-110');
+            } else if (State.timer.time <= 10 && State.timer.time > 0) {
+                tDisplay.classList.add('bg-red-500', 'text-white');
+            } else {
+                tDisplay.classList.add('bg-amber-400', 'text-amber-900');
+            }
+        }
+
+        function setTimer(seconds) {
+            State.timer.max = seconds;
+            State.timer.time = seconds;
+            updateTimerUI();
+            stopTimer();
+        }
+
+        function setCustomTimer() {
+            const val = parseInt(el('custom-timer-input').value);
+            if(val > 0) setTimer(val);
+        }
+
+        function toggleTimer() {
+            if (State.timer.time === 0 && !State.timer.active) {
+                State.timer.time = State.timer.max; // reset to max if starting from 0
+            }
+            
+            if (State.timer.active) {
+                stopTimer();
+            } else {
+                startTimer();
+            }
+        }
+
+        function startTimer() {
+            if(State.timer.time <= 0) return;
+            State.timer.active = true;
+            el('btn-timer-toggle').innerHTML = '⏸ Pause Timer';
+            el('btn-timer-toggle').classList.replace('bg-green-500', 'bg-orange-500');
+            
+            State.timer.intervalId = setInterval(() => {
+                State.timer.time--;
+                updateTimerUI();
+                
+                if (State.timer.time <= 10 && State.timer.time > 0) AudioSys.tick();
+                
+                if (State.timer.time <= 0) {
+                    stopTimer();
+                    AudioSys.timeup();
+                    showTimeUp();
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            State.timer.active = false;
+            clearInterval(State.timer.intervalId);
+            el('btn-timer-toggle').innerHTML = '▶ Start Timer';
+            el('btn-timer-toggle').classList.replace('bg-orange-500', 'bg-green-500');
+        }
+
+        function resetTimer() {
+            setTimer(State.timer.max);
+        }
+
+        function showTimeUp() {
+            const overlay = document.createElement('div');
+            overlay.className = "absolute inset-0 z-[70] bg-red-600/90 flex items-center justify-center animate-pop";
+            overlay.innerHTML = `<h1 class="text-8xl sm:text-[10rem] font-display text-white drop-shadow-2xl tracking-widest uppercase">Time's Up!</h1>`;
+            document.body.appendChild(overlay);
+            setTimeout(() => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 2500);
+        }
+
+        // --- 5. UI FLOW & VIEW RENDERING ---
+
+        function setHUDVisibility(visible, title = "", subtitle = "") {
+            const hud1 = el('round-indicator');
+            const hud2 = el('timer-display');
+            if (visible) {
+                hud1.classList.remove('-translate-y-full');
+                hud2.classList.remove('-translate-y-full');
+                el('round-title').innerText = title;
+                el('round-subtitle').innerText = subtitle;
+            } else {
+                hud1.classList.add('-translate-y-full');
+                hud2.classList.add('-translate-y-full');
+            }
+        }
+
+        function renderView() {
+            const container = el('game-content');
+            container.innerHTML = ''; // clear
+
+            if (State.view === 'start') {
+                setHUDVisibility(false);
+                container.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center space-y-8 animate-slide-top">
+                        <div class="text-center">
+                            <h1 class="text-6xl sm:text-8xl font-display text-slate-800 drop-shadow-md mb-2">English Battle</h1>
+                            <p class="text-xl text-slate-500 font-bold uppercase tracking-widest">Select a Round to Begin</p>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl mt-8">
+                            <button onclick="startRound(1)" class="group relative overflow-hidden bg-gradient-to-br from-purple-500 to-indigo-600 rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-2 border-4 border-indigo-300">
+                                <div class="text-6xl mb-4 group-hover:scale-110 transition-transform">🧩</div>
+                                <h3 class="text-2xl font-display text-white mb-2">Round 1</h3>
+                                <p class="text-indigo-100 font-bold">Sentence Scramble</p>
+                            </button>
+                            <button onclick="startRound(2)" class="group relative overflow-hidden bg-gradient-to-br from-green-400 to-emerald-600 rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-2 border-4 border-emerald-300">
+                                <div class="text-6xl mb-4 group-hover:scale-110 transition-transform">🪢</div>
+                                <h3 class="text-2xl font-display text-white mb-2">Round 2</h3>
+                                <p class="text-emerald-100 font-bold">Tug of War</p>
+                            </button>
+                            <button onclick="startRound(3)" class="group relative overflow-hidden bg-gradient-to-br from-pink-400 to-rose-600 rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-2 border-4 border-rose-300">
+                                <div class="text-6xl mb-4 group-hover:scale-110 transition-transform">🎁</div>
+                                <h3 class="text-2xl font-display text-white mb-2">Round 3</h3>
+                                <p class="text-rose-100 font-bold">Surprise Me!</p>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } 
+            else if (State.view === 'next_rep') {
+                container.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-center">
+                        <h2 class="text-4xl text-slate-500 font-bold uppercase tracking-widest mb-12">Next Representatives</h2>
+                        <div class="flex items-center justify-center gap-12 mb-16 w-full">
+                            <div class="bg-red-500 text-white rounded-3xl p-8 shadow-xl border-4 border-red-300 animate-slide-top" style="animation-delay: 0.1s">
+                                <div class="text-6xl mb-4">👦🏽</div>
+                                <h3 class="text-3xl font-display">Red Player</h3>
+                            </div>
+                            <div class="text-5xl font-display text-slate-400 italic">VS</div>
+                            <div class="bg-blue-500 text-white rounded-3xl p-8 shadow-xl border-4 border-blue-300 animate-slide-top" style="animation-delay: 0.2s">
+                                <div class="text-6xl mb-4">👧🏻</div>
+                                <h3 class="text-3xl font-display">Blue Player</h3>
+                            </div>
+                        </div>
+                        <div id="rep-countdown" class="text-[8rem] font-display text-slate-800 drop-shadow-lg h-40">Ready?</div>
+                    </div>
+                `;
+                // Start 3-2-1 Go sequence
+                setTimeout(() => AudioSys.pop(), 500);
+                let count = 3;
+                const cdEl = el('rep-countdown');
+                const i = setInterval(() => {
+                    if (count > 0) {
+                        cdEl.innerText = count;
+                        cdEl.classList.remove('animate-pop');
+                        void cdEl.offsetWidth; // trigger reflow
+                        cdEl.classList.add('animate-pop');
+                        AudioSys.tick();
+                        count--;
+                    } else {
+                        clearInterval(i);
+                        cdEl.innerText = "GO!";
+                        cdEl.classList.add('text-green-500');
+                        AudioSys.correct();
+                        setTimeout(() => {
+                            State.view = 'play';
+                            renderView();
+                        }, 1000);
+                    }
+                }, 1000);
+            }
+            else if (State.view === 'play') {
+                if (State.currentRound === 1) renderR1();
+                else if (State.currentRound === 2) renderR2();
+                else if (State.currentRound === 3) renderR3();
+            }
+            else if (State.view === 'round_end') {
+                container.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center animate-pop">
+                        <h1 class="text-6xl font-display text-slate-800 mb-8">Round ${State.currentRound} Complete!</h1>
+                        <div class="flex gap-8 mb-12 w-3/4">
+                            <div class="flex-1 bg-red-100 rounded-3xl p-8 text-center border-4 border-red-300">
+                                <h3 class="text-3xl font-bold text-red-600 mb-2">Game Red</h3>
+                                <div class="text-5xl font-display text-red-800">${State.teams.red.round} pts earned</div>
+                            </div>
+                            <div class="flex-1 bg-blue-100 rounded-3xl p-8 text-center border-4 border-blue-300">
+                                <h3 class="text-3xl font-bold text-blue-600 mb-2">Game Blue</h3>
+                                <div class="text-5xl font-display text-blue-800">${State.teams.blue.round} pts earned</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <button onclick="endGame()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-4 px-8 rounded-2xl text-xl shadow">Finish Game</button>
+                            <button onclick="State.view='start'; renderView();" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-4 px-8 rounded-2xl text-xl shadow">Next Round Menu</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function startRound(num) {
+            State.currentRound = num;
+            State.teams.red.round = 0;
+            State.teams.blue.round = 0;
+            
+            let title, subtitle, time;
+            if (num === 1) { title = "Sentence Scramble"; subtitle = "Round 1"; time = 60; }
+            if (num === 2) { title = "Tug of War"; subtitle = "Round 2"; time = 90; }
+            if (num === 3) { title = "Surprise Me!"; subtitle = "Round 3"; time = 120; }
+            
+            setHUDVisibility(true, title, subtitle);
+            setTimer(time);
+            showNextReps();
+        }
+
+        function showNextReps() {
+            State.view = 'next_rep';
+            renderView();
+            closeTeacherPanel();
+        }
+
+        // --- 6. ROUND 1: SENTENCE SCRAMBLE ---
+
+        function setupR1Team(team) {
+            let q = State.questions.round1[Math.floor(Math.random() * State.questions.round1.length)];
+            State.r1[team].currentQ = q;
+            let words = q.text.split(' ').map(w => w.trim()).filter(w=>w.length>0);
+            
+            // Shuffle words
+            words.sort(() => Math.random() - 0.5);
+            
+            State.r1[team].words = words.map((w, i) => ({
+                id: `${team}-w-${i}`, text: w, x: 20 + (Math.random() * 150), y: 20 + (Math.random() * 150), 
+                vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4, active: true
+            }));
+            State.r1[team].sentence = [];
+        }
+
+        function renderR1() {
+            const container = el('game-content');
+            State.r1.completed = false;
+            
+            // Setup questions for both teams
+            if(!State.r1.red.currentQ) setupR1Team('red');
+            if(!State.r1.blue.currentQ) setupR1Team('blue');
+
+            container.innerHTML = `
+                <div class="flex w-full h-full gap-4">
+                    <!-- Red Team Side -->
+                    <div class="w-1/2 flex flex-col bg-red-50 rounded-2xl border-4 border-red-200 overflow-hidden relative shadow-inner">
+                        <div class="w-full min-h-[8rem] bg-white/60 border-b-4 border-dashed border-red-300 flex items-center justify-center p-3 relative" id="r1-sentence-area-red">
+                            <div class="flex flex-wrap gap-2 justify-center" id="r1-constructed-red"></div>
+                            <button onclick="checkR1Sentence('red')" class="absolute right-2 bottom-2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-xl shadow-lg hidden z-10 animate-pop" id="r1-check-btn-red">Check</button>
+                        </div>
+                        
+                        <div id="r1-play-area-red" class="flex-grow relative overflow-hidden touch-none cursor-crosshair"></div>
+                        
+                        <!-- Overlay for Win/Lose -->
+                        <div id="r1-overlay-red" class="absolute inset-0 bg-red-500/90 z-40 hidden flex-col items-center justify-center text-white backdrop-blur-sm"></div>
+                    </div>
+
+                    <!-- Blue Team Side -->
+                    <div class="w-1/2 flex flex-col bg-blue-50 rounded-2xl border-4 border-blue-200 overflow-hidden relative shadow-inner">
+                        <div class="w-full min-h-[8rem] bg-white/60 border-b-4 border-dashed border-blue-300 flex items-center justify-center p-3 relative" id="r1-sentence-area-blue">
+                            <div class="flex flex-wrap gap-2 justify-center" id="r1-constructed-blue"></div>
+                            <button onclick="checkR1Sentence('blue')" class="absolute right-2 bottom-2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-xl shadow-lg hidden z-10 animate-pop" id="r1-check-btn-blue">Check</button>
+                        </div>
+                        
+                        <div id="r1-play-area-blue" class="flex-grow relative overflow-hidden touch-none cursor-crosshair"></div>
+                        
+                        <!-- Overlay for Win/Lose -->
+                        <div id="r1-overlay-blue" class="absolute inset-0 bg-blue-500/90 z-40 hidden flex-col items-center justify-center text-white backdrop-blur-sm"></div>
+                    </div>
+                </div>
+                
+                <button onclick="nextR1Question()" id="r1-next-btn" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-indigo-600 hover:bg-indigo-700 text-white font-display py-4 px-10 text-2xl rounded-2xl shadow-2xl hidden animate-pop z-50 border-4 border-indigo-300 transition-transform hover:scale-105">Next Race ➔</button>
+            `;
+
+            updateR1UI('red');
+            updateR1UI('blue');
+            startR1Physics();
+        }
+
+        function updateR1UI(team) {
+            const playArea = el(`r1-play-area-${team}`);
+            const constructArea = el(`r1-constructed-${team}`);
+            if(!playArea || !constructArea) return;
+
+            // Render constructed sentence
+            constructArea.innerHTML = State.r1[team].sentence.map(w => 
+                `<div onpointerdown="undoR1Word('${team}', '${w.id}')" class="bg-${team}-600 text-white font-display text-lg md:text-2xl py-2 px-4 rounded-xl shadow-md cursor-pointer hover:bg-${team}-700 animate-pop transition-colors border-b-4 border-${team}-800 touch-none">${w.text}</div>`
+            ).join('');
+
+            // Render moving words
+            State.r1[team].words.forEach(w => {
+                if(w.active) {
+                    let wordEl = document.getElementById(w.id);
+                    if(!wordEl) {
+                        wordEl = document.createElement('div');
+                        wordEl.id = w.id;
+                        const teamColor = team === 'red' ? 'amber' : 'cyan';
+                        wordEl.className = `scramble-word absolute bg-${teamColor}-300 text-slate-800 font-display text-lg md:text-2xl py-2 px-4 rounded-xl shadow-lg border-b-4 border-${teamColor}-500 select-none touch-none cursor-pointer`;
+                        wordEl.innerText = w.text;
+                        // Using onpointerdown prevents issues with touch screens misinterpreting the click as a drag
+                        wordEl.onpointerdown = (e) => { 
+                            e.preventDefault(); 
+                            selectR1Word(team, w.id); 
+                        };
+                        playArea.appendChild(wordEl);
+                    }
+                } else {
+                    let wordEl = document.getElementById(w.id);
+                    if(wordEl) wordEl.parentNode.removeChild(wordEl);
+                }
+            });
+
+            // Show check button if all words used
+            const checkBtn = el(`r1-check-btn-${team}`);
+            if (State.r1[team].sentence.length === State.r1[team].words.length && !State.r1.completed) {
+                checkBtn.classList.remove('hidden');
+            } else {
+                checkBtn.classList.add('hidden');
+            }
+        }
+
+        function selectR1Word(team, id) {
+            if (State.r1.completed) return;
+            AudioSys.pop();
+            const w = State.r1[team].words.find(x => x.id === id);
+            if(w) {
+                w.active = false;
+                State.r1[team].sentence.push(w);
+                updateR1UI(team);
+            }
+        }
+
+        function undoR1Word(team, id) {
+            if (State.r1.completed) return;
+            AudioSys.pop();
+            const idx = State.r1[team].sentence.findIndex(x => x.id === id);
+            if(idx > -1) {
+                const w = State.r1[team].sentence.splice(idx, 1)[0];
+                w.active = true;
+                w.x = 20 + Math.random() * 100; 
+                w.y = 20 + Math.random() * 100;
+                updateR1UI(team);
+            }
+        }
+
+        function startR1Physics() {
+            if(State.r1.animFrame) cancelAnimationFrame(State.r1.animFrame);
+            
+            function updatePhysics(team) {
+                const area = el(`r1-play-area-${team}`);
+                if(!area) return;
+                const bounds = area.getBoundingClientRect();
+                
+                State.r1[team].words.forEach(w => {
+                    if(!w.active) return;
+                    const domEl = document.getElementById(w.id);
+                    if(!domEl) return;
+                    
+                    const elW = domEl.offsetWidth || 80;
+                    const elH = domEl.offsetHeight || 40;
+
+                    w.x += w.vx;
+                    w.y += w.vy;
+
+                    // Soft bounce off walls
+                    if (w.x <= 0) { w.x = 0; w.vx *= -1; }
+                    if (w.x >= bounds.width - elW) { w.x = bounds.width - elW; w.vx *= -1; }
+                    if (w.y <= 0) { w.y = 0; w.vy *= -1; }
+                    if (w.y >= bounds.height - elH) { w.y = bounds.height - elH; w.vy *= -1; }
+
+                    domEl.style.transform = `translate(${w.x}px, ${w.y}px)`;
+                });
+            }
+
+            function loop() {
+                if(State.view !== 'play' || State.currentRound !== 1) return;
+                if(!State.r1.completed) {
+                    updatePhysics('red');
+                    updatePhysics('blue');
+                }
+                State.r1.animFrame = requestAnimationFrame(loop);
+            }
+            loop();
+        }
+
+        function checkR1Sentence(team) {
+            if(State.r1.completed) return;
+
+            const constructed = State.r1[team].sentence.map(w => w.text).join(' ');
+            const target = State.r1[team].currentQ.text;
+            
+            // Normalize for comparison
+            const normC = constructed.replace(/[.,!?]/g, '').toLowerCase().trim();
+            const normT = target.replace(/[.,!?]/g, '').toLowerCase().trim();
+
+            const area = el(`r1-sentence-area-${team}`);
+            const checkBtn = el(`r1-check-btn-${team}`);
+            checkBtn.classList.add('hidden'); 
+
+            if (normC === normT) {
+                // Correct! This team wins the race!
+                State.r1.completed = true;
+                AudioSys.tada();
+                
+                const pts = State.r1[team].currentQ.points || 5;
+                
+                // Add scores directly
+                adjustScore(team, pts);
+                State.teams[team].round += pts;
+
+                // Show Winner UI
+                const winOverlay = el(`r1-overlay-${team}`);
+                winOverlay.classList.remove('hidden');
+                winOverlay.classList.add('flex', 'animate-pop');
+                winOverlay.innerHTML = `<h2 class="text-[4rem] font-display mb-2 text-center leading-none">WINNER!</h2><p class="text-3xl font-bold text-yellow-300">+${pts} Points</p>`;
+                
+                // Show Too Slow UI for the other team
+                const otherTeam = team === 'red' ? 'blue' : 'red';
+                const loseOverlay = el(`r1-overlay-${otherTeam}`);
+                loseOverlay.classList.remove('hidden');
+                loseOverlay.classList.add('flex', 'bg-slate-800/80');
+                loseOverlay.innerHTML = `<h2 class="text-4xl font-display opacity-60">TOO SLOW!</h2>`;
+
+                // Show next round button
+                el('r1-next-btn').classList.remove('hidden');
+
+            } else {
+                // Wrong - Shake and let them keep trying
+                AudioSys.wrong();
+                area.classList.add('animate-shake', 'bg-red-200');
+                setTimeout(() => {
+                    area.classList.remove('animate-shake', 'bg-red-200');
+                    if(!State.r1.completed) checkBtn.classList.remove('hidden');
+                }, 1000);
+            }
+        }
+
+        function nextR1Question() {
+            State.r1.red.currentQ = null;
+            State.r1.blue.currentQ = null;
+            renderR1();
+        }
+
+        // --- 7. ROUND 2: TUG OF WAR ---
+
+        function renderR2() {
+            const container = el('game-content');
+            
+            const q = State.questions.round2[State.r2.currentQIndex % State.questions.round2.length];
+
+            container.innerHTML = `
+                <!-- Tug of War Visual Area -->
+                <div class="w-full h-48 bg-blue-50 rounded-2xl mb-6 relative flex items-center overflow-hidden border border-blue-100 shadow-inner">
+                    <!-- The Rope -->
+                    <div id="rope-container" class="absolute w-[200%] h-4 bg-amber-700 top-1/2 -translate-y-1/2 flex items-center justify-center transition-transform duration-700 ease-out z-10" style="left: -50%; transform: translateX(0px);">
+                        <!-- Center Flag -->
+                        <div class="w-4 h-16 bg-red-600 rotate-12"></div>
+                    </div>
+                    
+                    <!-- Characters -->
+                    <div class="absolute left-8 top-1/2 -translate-y-1/2 text-[4rem] z-20 drop-shadow-lg">🐕</div>
+                    <div class="absolute right-8 top-1/2 -translate-y-1/2 text-[4rem] z-20 drop-shadow-lg transform scale-x-[-1]">🐈</div>
+                    
+                    <!-- Team Scores in this round -->
+                    <div class="absolute top-2 left-4 font-bold text-red-500 text-lg bg-white/80 px-3 py-1 rounded-full shadow-sm z-20">Red: <span id="r2-red-score">${State.teams.red.round}</span></div>
+                    <div class="absolute top-2 right-4 font-bold text-blue-500 text-lg bg-white/80 px-3 py-1 rounded-full shadow-sm z-20">Blue: <span id="r2-blue-score">${State.teams.blue.round}</span></div>
+                </div>
+
+                <!-- Question Area -->
+                <div class="flex-grow flex flex-col items-center justify-center bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                    <h2 class="text-4xl md:text-5xl font-display text-slate-800 mb-8 text-center px-4 leading-tight">${q.text.replace('___', '<span class="inline-block w-24 h-10 border-b-4 border-slate-400 mx-2"></span>')}</h2>
+                    
+                    <div class="grid grid-cols-2 gap-4 w-full max-w-2xl" id="r2-options">
+                        ${q.options.map((opt, i) => `
+                            <button onclick="checkR2Answer('${opt}', '${q.answer}')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-bold py-6 rounded-2xl text-2xl shadow-sm border-2 border-indigo-200 transition-transform hover:scale-105">${String.fromCharCode(65+i)}. ${opt}</button>
+                        `).join('')}
+                    </div>
+
+                    <div id="r2-award-area" class="hidden mt-8 flex flex-col items-center animate-pop">
+                        <div class="text-2xl font-bold text-green-600 mb-4 bg-green-100 px-6 py-2 rounded-full">CORRECT! Who answered?</div>
+                        <div class="flex gap-4">
+                            <button onclick="awardR2Points('red')" class="bg-red-500 text-white font-display py-3 px-8 rounded-xl shadow-lg text-2xl hover:bg-red-600 hover:-translate-y-1 transition-all">Red +1</button>
+                            <button onclick="awardR2Points('blue')" class="bg-blue-500 text-white font-display py-3 px-8 rounded-xl shadow-lg text-2xl hover:bg-blue-600 hover:-translate-y-1 transition-all">Blue +1</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            updateR2Rope();
+        }
+
+        function checkR2Answer(selected, correct) {
+            const opts = el('r2-options');
+            if(selected === correct) {
+                AudioSys.correct();
+                opts.classList.add('opacity-50', 'pointer-events-none');
+                el('r2-award-area').classList.remove('hidden');
+            } else {
+                AudioSys.wrong();
+                // Find the button and shake it (simplistic approach without storing references)
+                Array.from(opts.children).forEach(btn => {
+                    if(btn.innerText.includes(selected)) {
+                        btn.classList.add('bg-red-200', 'border-red-400', 'text-red-800', 'animate-shake');
+                        setTimeout(() => btn.classList.remove('bg-red-200', 'border-red-400', 'text-red-800', 'animate-shake'), 800);
+                    }
+                });
+            }
+        }
+
+        function awardR2Points(team) {
+            State.teams[team].round += 1; // R2 scores by +1 increment usually for tug of war
+            State.teams[team].total += 1;
+            
+            updateScoresUI();
+            el(`r2-${team}-score`).innerText = State.teams[team].round;
+            animateScoreChange(team, 1);
+            
+            updateR2Rope();
+
+            // Auto next question
+            State.r2.currentQIndex++;
+            setTimeout(() => renderR2(), 1000);
+        }
+
+        function updateR2Rope() {
+            const rope = el('rope-container');
+            if(!rope) return;
+            const diff = State.teams.red.round - State.teams.blue.round;
+            // Max pixels to move left/right. Assuming container is ~800px wide, max move is 300px
+            const moveFactor = 30; // pixels per point difference
+            let px = diff * moveFactor;
+            // Cap it so rope doesn't detach
+            if(px > 250) px = 250;
+            if(px < -250) px = -250;
+            
+            // Note: Positive diff means Red is winning, so move left (closer to Red on left side) -> Negative px
+            rope.style.transform = `translateX(${-px}px)`;
+        }
+
+        // --- 8. ROUND 3: SURPRISE ME! ---
+
+        function renderR3() {
+            const container = el('game-content');
+            
+            if (!State.r3.currentChallenge) {
+                container.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center bg-gradient-to-br from-fuchsia-500 to-purple-600 rounded-[2rem] text-white p-8 relative overflow-hidden shadow-inner border-4 border-fuchsia-300">
+                        <!-- Decorative background elements -->
+                        <div class="absolute top-10 left-10 text-6xl opacity-20 transform rotate-12">⭐</div>
+                        <div class="absolute bottom-10 right-10 text-6xl opacity-20 transform -rotate-12">🎲</div>
+                        <div class="absolute top-1/2 right-20 text-4xl opacity-20 transform rotate-45">✨</div>
+                        
+                        <div id="r3-icon" class="text-[8rem] sm:text-[10rem] drop-shadow-2xl mb-8 ${State.r3.isSpinning ? 'animate-spin-fast' : 'animate-pop'}">🎁</div>
+                        <h2 class="text-5xl sm:text-7xl font-display mb-12 drop-shadow-lg tracking-wide uppercase text-center">Surprise Me!</h2>
+                        
+                        <button onclick="spinR3()" id="btn-spin" class="bg-yellow-400 hover:bg-yellow-300 text-yellow-900 font-display text-3xl py-5 px-12 rounded-full shadow-[0_8px_0_rgb(180,83,9)] active:shadow-[0_0px_0_rgb(180,83,9)] active:translate-y-2 transition-all border-4 border-yellow-200">
+                            SPIN!
+                        </button>
+                    </div>
+                `;
+            } else {
+                renderR3Challenge(container);
+            }
+        }
+
+        function spinR3() {
+            if(State.r3.isSpinning) return;
+            State.r3.isSpinning = true;
+            el('btn-spin').classList.add('hidden');
+            
+            const iconEl = el('r3-icon');
+            iconEl.classList.add('animate-spin-fast');
+            
+            const emojis = ['🎲','🎯','🧩','🏆','⭐','💡','🎭'];
+            let count = 0;
+            const spinInterval = setInterval(() => {
+                iconEl.innerText = emojis[count % emojis.length];
+                AudioSys.tick();
+                count++;
+            }, 100);
+
+            setTimeout(() => {
+                clearInterval(spinInterval);
+                State.r3.isSpinning = false;
+                
+                // Pick random challenge
+                const challenges = State.questions.round3_challenges;
+                State.r3.currentChallenge = challenges[Math.floor(Math.random() * challenges.length)];
+                
+                AudioSys.tada();
+                renderR3();
+            }, 2000);
+        }
+
+        function renderR3Challenge(container) {
+            const c = State.r3.currentChallenge;
+            
+            let contentHTML = '';
+            
+            if (c.isManual) {
+                contentHTML = `
+                    <div class="text-center animate-pop">
+                        <div class="text-[6rem] mb-4">🎤</div>
+                        <h2 class="text-4xl md:text-5xl font-display text-slate-800 mb-4">${c.q}</h2>
+                        <p class="text-xl text-slate-500 font-bold mb-8">${c.desc}</p>
+                        <div class="bg-yellow-100 text-yellow-800 inline-block px-6 py-2 rounded-full font-bold text-xl border-2 border-yellow-300 mb-8">Worth ${c.pts} Points!</div>
+                        
+                        <div class="flex justify-center gap-6">
+                            <button onclick="awardR3Points('red')" class="bg-red-500 hover:bg-red-600 text-white font-display py-4 px-10 rounded-2xl shadow-lg text-2xl transition-transform hover:scale-105">Red Won</button>
+                            <button onclick="awardR3Points('blue')" class="bg-blue-500 hover:bg-blue-600 text-white font-display py-4 px-10 rounded-2xl shadow-lg text-2xl transition-transform hover:scale-105">Blue Won</button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                contentHTML = `
+                    <div class="w-full max-w-3xl animate-slide-top">
+                        <div class="flex justify-between items-center mb-8">
+                            <span class="bg-purple-100 text-purple-800 px-4 py-1 rounded-full font-bold uppercase tracking-wide text-sm border border-purple-200">${c.type} challenge</span>
+                            <span class="bg-yellow-100 text-yellow-800 px-4 py-1 rounded-full font-bold uppercase tracking-wide text-sm border border-yellow-300">Worth ${c.pts} Pts</span>
+                        </div>
+                        <h2 class="text-3xl md:text-5xl font-display text-slate-800 mb-12 text-center leading-tight">${c.q}</h2>
+                        
+                        <div class="grid ${c.opts.length > 2 ? 'grid-cols-2' : 'grid-cols-1 md:grid-cols-2'} gap-6 w-full" id="r3-options">
+                            ${c.opts.map((opt, i) => `
+                                <button onclick="checkR3Answer('${opt}', '${c.a}')" class="bg-white hover:bg-slate-50 text-slate-800 font-display py-6 px-4 rounded-2xl text-2xl md:text-3xl shadow-md border-b-4 border-slate-300 transition-transform hover:translate-y-1 hover:border-b-0 focus:outline-none">${opt}</button>
+                            `).join('')}
+                        </div>
+
+                        <div id="r3-award-area" class="hidden mt-10 text-center animate-pop bg-slate-50 rounded-2xl p-6 border-2 border-dashed border-slate-300">
+                            <h3 class="text-2xl font-bold text-slate-700 mb-4">Who answered correctly?</h3>
+                            <div class="flex justify-center gap-4">
+                                <button onclick="awardR3Points('red')" class="bg-red-500 text-white font-bold py-3 px-8 rounded-xl shadow text-xl hover:bg-red-600 hover:-translate-y-1 transition-all">Red Team</button>
+                                <button onclick="awardR3Points('blue')" class="bg-blue-500 text-white font-bold py-3 px-8 rounded-xl shadow text-xl hover:bg-blue-600 hover:-translate-y-1 transition-all">Blue Team</button>
+                                <button onclick="nextR3Challenge()" class="bg-slate-400 text-white font-bold py-3 px-8 rounded-xl shadow text-xl hover:bg-slate-500">No One (Skip)</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = `
+                <div class="h-full flex items-center justify-center bg-purple-50 rounded-[2rem] p-8 border border-purple-100 shadow-inner overflow-y-auto">
+                    ${contentHTML}
+                </div>
+            `;
+        }
+
+        function checkR3Answer(selected, correct) {
+            const opts = el('r3-options');
+            if(selected === correct) {
+                AudioSys.correct();
+                opts.classList.add('pointer-events-none', 'opacity-60');
+                el('r3-award-area').classList.remove('hidden');
+            } else {
+                AudioSys.wrong();
+                // Simple visual feedback for wrong
+                const btns = opts.getElementsByTagName('button');
+                for(let btn of btns) {
+                    if(btn.innerText.trim() === selected.trim()) {
+                        btn.classList.add('bg-red-100', 'text-red-600', 'border-red-300', 'animate-shake');
+                    }
+                }
+            }
+        }
+
+        function awardR3Points(team) {
+            const pts = State.r3.currentChallenge.pts;
+            adjustScore(team, pts);
+            State.teams[team].round += pts; // keep track of round score too
+            
+            const awardArea = el('r3-award-area');
+            if(awardArea) {
+                awardArea.innerHTML = `<div class="text-3xl font-display text-green-600 animate-pop">Points Awarded!</div>
+                <button onclick="nextR3Challenge()" class="mt-4 bg-purple-600 text-white font-bold py-3 px-8 rounded-xl shadow-lg">Next Challenge ➔</button>`;
+            }
+        }
+
+        function nextR3Challenge() {
+            State.r3.currentChallenge = null;
+            renderR3();
+        }
+
+        // --- 9. TEACHER PANEL & QUESTION EDITOR ---
+
+        function openTeacherPanel() {
+            el('teacher-panel').classList.remove('hidden');
+            renderEditor();
+        }
+
+        function closeTeacherPanel() {
+            el('teacher-panel').classList.add('hidden');
+        }
+
+        function renderEditor() {
+            const container = el('editor-container');
+            const round = el('editor-round-select').value;
+            
+            let html = '';
+            
+            if (round == '1') {
+                html = `<div class="space-y-2">`;
+                State.questions.round1.forEach((q, idx) => {
+                    html += `
+                    <div class="flex items-center gap-2 bg-slate-50 p-2 rounded border group">
+                        <span class="text-slate-400 font-mono text-xs w-6">${idx+1}.</span>
+                        <input type="text" class="flex-grow border rounded px-2 py-1 text-sm bg-white focus:outline-none focus:border-indigo-500" value="${q.text.replace(/"/g, '&quot;')}" onchange="updateQ1(${idx}, this.value)">
+                        <button onclick="deleteQ('round1', ${idx})" class="text-red-400 hover:text-red-600 px-2 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete">✖</button>
+                    </div>`;
+                });
+                html += `
+                    <div class="mt-3 text-center">
+                        <button onclick="addQ1()" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-1 rounded text-sm font-bold border border-indigo-200">+ Add New Sentence</button>
+                    </div>
+                </div>`;
+            } else if (round == '2') {
+                html = `<div class="space-y-3">`;
+                State.questions.round2.forEach((q, idx) => {
+                    html += `
+                    <div class="bg-slate-50 p-3 rounded border text-sm relative group">
+                        <button onclick="deleteQ('round2', ${idx})" class="absolute top-2 right-2 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">✖</button>
+                        <div class="mb-2 flex items-center gap-2">
+                            <span class="font-bold text-slate-500">Q:</span>
+                            <input type="text" class="flex-grow border rounded px-2 py-1" value="${q.text.replace(/"/g, '&quot;')}" onchange="updateQ2(${idx}, 'text', this.value)">
+                        </div>
+                        <div class="mb-2 flex items-center gap-2">
+                            <span class="font-bold text-slate-500">Opts:</span>
+                            <input type="text" class="flex-grow border rounded px-2 py-1" placeholder="Comma separated" value="${q.options.join(', ')}" onchange="updateQ2(${idx}, 'options', this.value)">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-green-600">Ans:</span>
+                            <input type="text" class="flex-grow border rounded px-2 py-1 border-green-200 bg-green-50" value="${q.answer.replace(/"/g, '&quot;')}" onchange="updateQ2(${idx}, 'answer', this.value)">
+                        </div>
+                    </div>`;
+                });
+                 html += `
+                    <div class="mt-3 text-center">
+                        <button onclick="addQ2()" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-1 rounded text-sm font-bold border border-indigo-200">+ Add Fill-in-Blank</button>
+                    </div>
+                </div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        // Editor Actions (Simple mutations)
+        function updateQ1(idx, val) { State.questions.round1[idx].text = val; saveQuestions(); }
+        function addQ1() { State.questions.round1.push({ id: Date.now(), text: "New sentence here.", points: 5 }); saveQuestions(); renderEditor(); }
+        function deleteQ(round, idx) { State.questions[round].splice(idx, 1); saveQuestions(); renderEditor(); }
+        
+        function updateQ2(idx, field, val) { 
+            if(field === 'options') State.questions.round2[idx].options = val.split(',').map(s=>s.trim());
+            else State.questions.round2[idx][field] = val;
+            saveQuestions(); 
+        }
+        function addQ2() { State.questions.round2.push({ id: Date.now(), text: "New ___ question.", options: ["A", "B", "C"], answer: "A" }); saveQuestions(); renderEditor(); }
+
+        function resetQuestionsToDefault() {
+            if(confirm("Are you sure you want to restore default questions? Custom questions will be lost.")) {
+                State.questions = JSON.parse(JSON.stringify(DEFAULT_QUESTIONS));
+                saveQuestions();
+                renderEditor();
+            }
+        }
+
+        // Modals & Resets
+        function showAlert(title, msg, onConfirm) {
+            el('alert-title').innerText = title;
+            el('alert-msg').innerText = msg;
+            const btn = el('alert-confirm-btn');
+            // Remove old listeners by cloning
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            newBtn.addEventListener('click', () => {
+                onConfirm();
+                closeAlert();
+            });
+            el('alert-modal').classList.remove('hidden');
+        }
+        function closeAlert() { el('alert-modal').classList.add('hidden'); }
+
+        function confirmResetRound() {
+            showAlert("Reset Round?", "This will reset the current round scores and timer.", () => {
+                State.teams.red.round = 0;
+                State.teams.blue.round = 0;
+                resetTimer();
+                if(State.currentRound === 1) { 
+                    State.r1.red.currentQ = null; 
+                    State.r1.blue.currentQ = null; 
+                    renderR1(); 
+                }
+                if(State.currentRound === 2) { State.r2.currentQIndex = 0; renderR2(); }
+                if(State.currentRound === 3) { State.r3.currentChallenge = null; State.r3.isSpinning = false; renderR3(); }
+                closeTeacherPanel();
+            });
+        }
+
+        function confirmResetGame() {
+             showAlert("Reset Entire Game?", "This will wipe all scores and return to the main menu.", () => {
+                State.teams.red.total = 0; State.teams.red.round = 0;
+                State.teams.blue.total = 0; State.teams.blue.round = 0;
+                State.currentRound = 0;
+                State.view = 'start';
+                stopTimer();
+                updateScoresUI();
+                renderView();
+                closeTeacherPanel();
+            });
+        }
+
+        function endGame() {
+            State.view = 'final_score';
+            
+            const rTotal = State.teams.red.total;
+            const bTotal = State.teams.blue.total;
+            
+            let winnerTitle = "";
+            let winnerClass = "";
+            if (rTotal > bTotal) { winnerTitle = "GAME RED WINS!"; winnerClass = "text-red-500"; }
+            else if (bTotal > rTotal) { winnerTitle = "GAME BLUE WINS!"; winnerClass = "text-blue-500"; }
+            else { winnerTitle = "IT'S A DRAW!"; winnerClass = "text-purple-500"; }
+
+            el('game-content').innerHTML = `
+                <div class="h-full w-full flex flex-col items-center justify-center animate-slide-top relative z-10">
+                    <h2 class="text-4xl uppercase tracking-widest text-slate-500 font-bold mb-4">Final Score</h2>
+                    <h1 class="text-[5rem] md:text-[7rem] font-display ${winnerClass} drop-shadow-xl mb-12 text-center leading-none">${winnerTitle}</h1>
+                    
+                    <div class="flex justify-center gap-12 w-full max-w-3xl mb-12">
+                        <div class="flex-1 bg-red-500 rounded-[3rem] p-10 text-center text-white shadow-2xl border-8 border-red-300 transform -rotate-2">
+                            <h3 class="text-3xl font-display opacity-80 mb-2">Red</h3>
+                            <div class="text-[6rem] font-display leading-none">${rTotal}</div>
+                        </div>
+                        <div class="flex-1 bg-blue-500 rounded-[3rem] p-10 text-center text-white shadow-2xl border-8 border-blue-300 transform rotate-2">
+                            <h3 class="text-3xl font-display opacity-80 mb-2">Blue</h3>
+                            <div class="text-[6rem] font-display leading-none">${bTotal}</div>
+                        </div>
+                    </div>
+                    
+                    <button onclick="confirmResetGame()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-4 px-10 rounded-full text-xl shadow-lg transition-transform hover:scale-105">Play Again</button>
+                </div>
+            `;
+            setHUDVisibility(false);
+            AudioSys.tada();
+            fireConfetti();
+        }
+
+        // --- 10. POLISH & INITIALIZATION ---
+
+        function fireConfetti() {
+            const canvas = el('confetti-canvas');
+            canvas.classList.remove('hidden');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const pieces = [];
+            const colors = ['#f43f5e', '#3b82f6', '#fbbf24', '#10b981', '#a855f7'];
+            
+            for(let i=0; i<200; i++) {
+                pieces.push({
+                    x: canvas.width / 2, y: canvas.height / 2 + 200,
+                    vx: (Math.random() - 0.5) * 30, vy: (Math.random() - 1) * 30 - 10,
+                    size: Math.random() * 15 + 5, color: colors[Math.floor(Math.random()*colors.length)],
+                    rot: Math.random() * 360, rotSpeed: (Math.random() - 0.5) * 20
+                });
+            }
+
+            function animate() {
+                if(State.view !== 'final_score') {
+                    canvas.classList.add('hidden');
+                    return;
+                }
+                ctx.clearRect(0,0,canvas.width, canvas.height);
+                let active = false;
+                pieces.forEach(p => {
+                    p.x += p.vx; p.y += p.vy; p.vy += 0.8; // gravity
+                    p.rot += p.rotSpeed;
+                    if(p.y < canvas.height + 50) active = true;
+                    
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.rot * Math.PI / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+                    ctx.restore();
+                });
+                
+                if(active) requestAnimationFrame(animate);
+                else canvas.classList.add('hidden');
+            }
+            animate();
+        }
+
+        // Initialize App
+        window.onload = () => {
+            updateScoresUI();
+            renderView();
+            // Pre-init audio context on first click anywhere on screen (browser policy)
+            document.body.addEventListener('click', () => AudioSys.init(), {once: true});
+        };
+
+    </script>
+</body>
+</html>

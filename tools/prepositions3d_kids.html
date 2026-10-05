@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Prepositions Speaking Practice</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- Load Three.js for True 3D Rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Baloo 2', cursive;
+            background: #87CEEB; /* Sky blue */
+            overflow-x: hidden;
+        }
+
+        /* --- Child-friendly Background Clouds --- */
+        .cloud {
+            position: absolute;
+            background: white;
+            border-radius: 200px;
+            box-shadow: inset -5px -5px 0px rgba(0,0,0,0.05);
+            animation: drift linear infinite;
+            z-index: -1;
+        }
+        .cloud::before, .cloud::after {
+            content: '';
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+        }
+        .c1 { width: 120px; height: 40px; top: 10%; left: -150px; animation-duration: 25s; }
+        .c1::before { width: 50px; height: 50px; top: -20px; left: 15px; }
+        .c1::after { width: 60px; height: 60px; top: -30px; left: 45px; }
+        
+        .c2 { width: 180px; height: 50px; top: 40%; left: -200px; animation-duration: 35s; animation-delay: 5s; }
+        .c2::before { width: 70px; height: 70px; top: -35px; left: 25px; }
+        .c2::after { width: 90px; height: 90px; top: -50px; left: 70px; }
+
+        @keyframes drift {
+            from { transform: translateX(-20vw); }
+            to { transform: translateX(120vw); }
+        }
+
+        /* --- 3D Canvas Container --- */
+        #canvas-container {
+            width: 100%;
+            height: 400px;
+            background: radial-gradient(circle at center, #e0f2fe 0%, #bae6fd 100%);
+            border-radius: 2rem;
+            border: 8px solid white;
+            box-shadow: inset 0 10px 20px rgba(0,0,0,0.05), 0 15px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            outline: none;
+        }
+
+        /* --- Cute UI Buttons --- */
+        .bouncy-btn {
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .bouncy-btn:active {
+            transform: scale(0.95) translateY(2px);
+            box-shadow: 0 0px 0 transparent !important;
+        }
+
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background-color: white;
+            color: #3b82f6; /* Blue-500 */
+            font-weight: 800;
+            font-size: 1.1rem;
+            border-radius: 9999px;
+            box-shadow: 0 4px 0 #bfdbfe; /* Blue-200 */
+            border: 2px solid #bfdbfe;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover {
+            background-color: #eff6ff;
+            color: #2563eb;
+        }
+        .nav-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 0px 0 #bfdbfe;
+        }
+
+        /* Loading Spinner for Voice */
+        .loader {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- Decorative Background Clouds -->
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+
+    <div class="bg-white/90 backdrop-blur-md rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] max-w-4xl w-full p-8 border-[10px] border-white z-10 relative">
+        
+        <!-- Header Controls (Updated Arrow UI) -->
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+            <button onclick="changeActivity(-1)" class="nav-btn w-full sm:w-auto justify-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
+                Previous
+            </button>
+            
+            <div class="bg-yellow-400 text-yellow-900 px-8 py-2 rounded-full font-bold text-2xl shadow-[0_4px_0_#ca8a04] border-2 border-yellow-500 whitespace-nowrap">
+                ⭐ Activity <span id="act-num">1</span> ⭐
+            </div>
+            
+            <button onclick="changeActivity(1)" class="nav-btn w-full sm:w-auto justify-center flex-row-reverse sm:flex-row">
+                Next
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+        </div>
+
+        <!-- Question Title & Gemini Voice -->
+        <div class="text-center space-y-2 mb-8">
+            <div class="flex items-center justify-center gap-4">
+                <h1 id="question" class="text-4xl sm:text-5xl font-extrabold text-blue-900 drop-shadow-sm transition-all">Where is the apple?</h1>
+                <button onclick="playGeminiVoice()" id="voice-btn" class="bouncy-btn flex items-center justify-center bg-green-500 hover:bg-green-400 text-white w-14 h-14 rounded-full shadow-[0_6px_0_#16a34a] border-2 border-green-600 transition-colors flex-shrink-0">
+                    <svg id="voice-icon" class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M14.65 4.35l-5.65 5.65h-4v4h4l5.65 5.65c.31.31.85.09.85-.35v-14.6c0-.44-.54-.66-.85-.35zm3.35 7.65c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+                    <div id="voice-loader" class="loader"></div>
+                </button>
+            </div>
+            <p class="text-blue-500 text-xl font-semibold opacity-80">Ask your friend and answer in a full sentence!</p>
+        </div>
+
+        <!-- True 3D Interactive Stage -->
+        <div id="canvas-container" class="mb-8 relative group cursor-grab active:cursor-grabbing">
+            <!-- Hint to drag/look around -->
+            <div class="absolute bottom-4 right-4 bg-white/80 backdrop-blur px-4 py-2 rounded-full text-sm font-bold text-blue-600 pointer-events-none shadow-sm flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
+                Orbit & Look Inside!
+            </div>
+        </div>
+
+        <!-- Magic Change & Reveal Answer Buttons -->
+        <div class="flex flex-col sm:flex-row justify-center items-center gap-4 mb-4">
+            <button onclick="randomizePosition()" class="bouncy-btn bg-pink-500 hover:bg-pink-400 text-white px-10 py-4 rounded-3xl text-2xl font-black shadow-[0_8px_0_#be185d] border-4 border-pink-600 tracking-wide uppercase w-full sm:w-auto">
+                Magic Move! 🎲
+            </button>
+            <button onclick="revealAnswer()" class="bouncy-btn bg-purple-500 hover:bg-purple-400 text-white px-10 py-4 rounded-3xl text-2xl font-black shadow-[0_8px_0_#7e22ce] border-4 border-purple-600 tracking-wide uppercase w-full sm:w-auto">
+                Show Answer 💡
+            </button>
+        </div>
+
+        <!-- Answer Display Area -->
+        <div id="answer-container" class="hidden transform transition-all duration-500 scale-95 opacity-0 text-center bg-purple-100 border-4 border-purple-300 rounded-2xl p-6 relative mt-4">
+            <h2 id="answer-text" class="text-3xl font-extrabold text-purple-900 mb-2"></h2>
+            <button onclick="playAnswerVoice()" id="ans-voice-btn" class="bouncy-btn absolute -top-4 -right-4 flex items-center justify-center bg-green-500 hover:bg-green-400 text-white w-12 h-12 rounded-full shadow-[0_4px_0_#16a34a] border-2 border-green-600 transition-colors">
+                <svg id="ans-voice-icon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M14.65 4.35l-5.65 5.65h-4v4h4l5.65 5.65c.31.31.85.09.85-.35v-14.6c0-.44-.54-.66-.85-.35zm3.35 7.65c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+                <div id="ans-voice-loader" class="loader !w-5 !h-5 !border-2"></div>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- Gemini TTS Integration ---
+        const apiKey = (localStorage.getItem('cth_gemini_key')||""); // Environment provided
+        let currentAudio = null;
+
+        function pcmToWav(pcmBase64, sampleRate) {
+            const binaryStr = atob(pcmBase64);
+            const len = binaryStr.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) bytes[i] = binaryStr.charCodeAt(i);
+            const buffer = new ArrayBuffer(44 + bytes.length);
+            const view = new DataView(buffer);
+            const writeString = (view, offset, string) => {
+                for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
+            };
+            writeString(view, 0, 'RIFF'); view.setUint32(4, 36 + bytes.length, true);
+            writeString(view, 8, 'WAVE'); writeString(view, 12, 'fmt '); view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true); view.setUint16(22, 1, true); 
+            view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+            writeString(view, 36, 'data'); view.setUint32(40, bytes.length, true);
+            new Uint8Array(buffer, 44).set(bytes);
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        async function speakText(text, iconId, loaderId) {
+            const btnIcon = document.getElementById(iconId);
+            const btnLoader = document.getElementById(loaderId);
+            
+            if(currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+            btnIcon.style.display = 'none'; btnLoader.style.display = 'block';
+
+            try {
+                if(!apiKey) throw new Error("No API Key");
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `Say playfully and clearly for a child: ${text}` }] }],
+                        generationConfig: {
+                            responseModalities: ["AUDIO"],
+                            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } }
+                        },
+                        model: "gemini-2.5-flash-preview-tts"
+                    })
+                });
+
+                if(!response.ok) throw new Error("API Error");
+                const result = await response.json();
+                const inlineData = result.candidates[0].content.parts[0].inlineData;
+                const match = (inlineData.mimeType || "").match(/rate=(\d+)/);
+                const wavBlob = pcmToWav(inlineData.data, match ? parseInt(match[1]) : 24000);
+                currentAudio = new Audio(URL.createObjectURL(wavBlob));
+                currentAudio.play();
+            } catch (e) {
+                // Remove HTML tags for speech
+                const cleanText = text.replace(/<[^>]*>?/gm, '');
+                const msg = new SpeechSynthesisUtterance(cleanText);
+                const voices = window.speechSynthesis.getVoices();
+                msg.voice = voices.find(v => v.name.includes('Google') || v.name.includes('Natural')) || voices[0];
+                msg.rate = 0.85; msg.pitch = 1.2;
+                window.speechSynthesis.speak(msg);
+            } finally {
+                btnIcon.style.display = 'block'; btnLoader.style.display = 'none';
+            }
+        }
+
+        function playGeminiVoice() {
+            speakText(activities[currentIdx].q, 'voice-icon', 'voice-loader');
+        }
+
+        function playAnswerVoice() {
+            const text = document.getElementById('answer-text').innerText;
+            speakText(text, 'ans-voice-icon', 'ans-voice-loader');
+        }
+
+        // --- TRUE 3D ENGINE (THREE.JS) ---
+        let scene, camera, renderer, animationId, controls;
+        let currentFixedGroup = null;
+        let currentMovingGroup = null;
+        let targetPosition = new THREE.Vector3();
+        
+        // Materials (Child-friendly, vibrant, solid colors)
+        const matWood = new THREE.MeshStandardMaterial({ color: '#D2691E', roughness: 0.8 });
+        const matWoodLight = new THREE.MeshStandardMaterial({ color: '#DEB887', roughness: 0.9 });
+        const matBox = new THREE.MeshStandardMaterial({ color: '#E1C699', roughness: 1.0 });
+        const matRed = new THREE.MeshStandardMaterial({ color: '#ef4444', roughness: 0.4 });
+        const matBlue = new THREE.MeshStandardMaterial({ color: '#3b82f6', roughness: 0.3 });
+        const matYellow = new THREE.MeshStandardMaterial({ color: '#facc15', roughness: 0.3 });
+        const matWhite = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.9 });
+        const matGreen = new THREE.MeshStandardMaterial({ color: '#22c55e', roughness: 0.6 });
+        const matDarkGray = new THREE.MeshStandardMaterial({ color: '#4b5563', roughness: 0.5 });
+
+        function initThree() {
+            const container = document.getElementById('canvas-container');
+            
+            // Scene & Camera
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(0, 12, 25);
+            camera.lookAt(0, 2, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            dirLight.position.set(10, 20, 10);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            dirLight.shadow.camera.near = 0.5;
+            dirLight.shadow.camera.far = 50;
+            dirLight.shadow.camera.left = -15;
+            dirLight.shadow.camera.right = 15;
+            dirLight.shadow.camera.top = 15;
+            dirLight.shadow.camera.bottom = -15;
+            scene.add(dirLight);
+
+            // Floor (Receives shadow)
+            const floorGeo = new THREE.PlaneGeometry(100, 100);
+            const floorMat = new THREE.ShadowMaterial({ opacity: 0.1 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Orbit Controls for fully exploring the 3D space
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 - 0.05; // Don't let camera go below ground
+            controls.minDistance = 10;
+            controls.maxDistance = 60;
+            controls.target.set(0, 2, 0);
+
+            animate();
+            renderActivity(); // Load first scene
+        }
+
+        // --- 3D Model Builders ---
+        function createMesh(geometry, material, castShadow=true) {
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.castShadow = castShadow;
+            mesh.receiveShadow = true;
+            return mesh;
+        }
+
+        // Fixed Objects
+        function buildTable() {
+            const group = new THREE.Group();
+            // Top
+            const top = createMesh(new THREE.BoxGeometry(10, 0.6, 6), matWood);
+            top.position.y = 4.7;
+            group.add(top);
+            // Legs
+            const legGeo = new THREE.CylinderGeometry(0.3, 0.2, 4.5, 16);
+            const poses = [[-4.2, -2.4], [4.2, -2.4], [-4.2, 2.4], [4.2, 2.4]];
+            poses.forEach(p => {
+                const leg = createMesh(legGeo, matWood);
+                leg.position.set(p[0], 2.25, p[1]);
+                group.add(leg);
+            });
+            return group;
+        }
+
+        function buildChair() {
+            const group = new THREE.Group();
+            // Seat
+            const seat = createMesh(new THREE.BoxGeometry(4.5, 0.5, 4.5), matWoodLight);
+            seat.position.y = 2.5;
+            group.add(seat);
+            // Backrest
+            const backBase = createMesh(new THREE.BoxGeometry(4.5, 4, 0.5), matWoodLight);
+            backBase.position.set(0, 4.5, -2);
+            group.add(backBase);
+            // Legs
+            const legGeo = new THREE.CylinderGeometry(0.2, 0.15, 2.5, 16);
+            const poses = [[-1.9, -1.9], [1.9, -1.9], [-1.9, 1.9], [1.9, 1.9]];
+            poses.forEach(p => {
+                const leg = createMesh(legGeo, matWoodLight);
+                leg.position.set(p[0], 1.25, p[1]);
+                group.add(leg);
+            });
+            return group;
+        }
+
+        function buildBox() {
+            const group = new THREE.Group();
+            // Base
+            const base = createMesh(new THREE.BoxGeometry(6, 0.2, 6), matBox);
+            base.position.y = 0.1;
+            group.add(base);
+            // Walls
+            const w1 = createMesh(new THREE.BoxGeometry(6, 4, 0.2), matBox); w1.position.set(0, 2, -2.9); group.add(w1);
+            const w2 = createMesh(new THREE.BoxGeometry(6, 4, 0.2), matBox); w2.position.set(0, 2, 2.9); group.add(w2);
+            const w3 = createMesh(new THREE.BoxGeometry(0.2, 4, 6), matBox); w3.position.set(-2.9, 2, 0); group.add(w3);
+            const w4 = createMesh(new THREE.BoxGeometry(0.2, 4, 6), matBox); w4.position.set(2.9, 2, 0); group.add(w4);
+            return group;
+        }
+
+        // Moving Objects
+        function buildApple() {
+            const group = new THREE.Group();
+            const body = createMesh(new THREE.SphereGeometry(0.7, 32, 32), matRed);
+            body.position.y = 0.7;
+            const stem = createMesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4), matWood);
+            stem.position.set(0, 1.5, 0);
+            const leaf = createMesh(new THREE.BoxGeometry(0.4, 0.1, 0.2), matGreen);
+            leaf.position.set(0.2, 1.5, 0);
+            leaf.rotation.z = Math.PI/4;
+            group.add(body, stem, leaf);
+            return group;
+        }
+
+        function buildPen() {
+            const group = new THREE.Group();
+            const body = createMesh(new THREE.CylinderGeometry(0.15, 0.15, 2.5, 16), matBlue);
+            body.position.y = 1.25;
+            const tip = createMesh(new THREE.ConeGeometry(0.15, 0.5, 16), matDarkGray);
+            tip.position.y = 2.75;
+            group.add(body, tip);
+            group.rotation.z = -Math.PI / 6; // Laying diagonally
+            group.position.y = 0.1; 
+            return group;
+        }
+
+        function buildBook() {
+            const group = new THREE.Group();
+            const cover = createMesh(new THREE.BoxGeometry(2.5, 0.6, 3.5), matRed);
+            cover.position.y = 0.3;
+            const pages = createMesh(new THREE.BoxGeometry(2.3, 0.5, 3.3), matWhite);
+            pages.position.set(0.1, 0.3, 0); // Stick out slightly
+            group.add(cover, pages);
+            return group;
+        }
+
+        function buildCup() {
+            const group = new THREE.Group();
+            const body = createMesh(new THREE.CylinderGeometry(0.6, 0.5, 1.5, 32), matYellow);
+            body.position.y = 0.75;
+            const handle = createMesh(new THREE.TorusGeometry(0.4, 0.1, 16, 32), matYellow);
+            handle.position.set(0.6, 0.75, 0);
+            handle.rotation.y = Math.PI / 2;
+            group.add(body, handle);
+            return group;
+        }
+
+
+        // --- Activity Logic & State ---
+        const activities = [
+            { id: 1, fixed: 'table', moving: 'apple', buildFixed: buildTable, buildMoving: buildApple, q: 'Where is the apple?' },
+            { id: 2, fixed: 'chair', moving: 'pen', buildFixed: buildChair, buildMoving: buildPen, q: 'Where is the pen?' },
+            { id: 3, fixed: 'box', moving: 'book', buildFixed: buildBox, buildMoving: buildBook, q: 'Where is the book?' },
+            { id: 4, fixed: 'table', moving: 'cup', buildFixed: buildTable, buildMoving: buildCup, q: 'Where is the cup?' }
+        ];
+
+        // 3D Target Coordinates with Prepositions
+        const positions = {
+            table: [
+                { prep: 'on', x: 0, y: 5.0, z: 0 },
+                { prep: 'under', x: 0, y: 0.5, z: 0 },
+                { prep: 'next to', x: -6.5, y: 0.5, z: 0 },
+                { prep: 'next to', x: 6.5, y: 0.5, z: 0 },
+                { prep: 'above', x: 0, y: 9.0, z: 0 }
+            ],
+            chair: [
+                { prep: 'on', x: 0, y: 2.8, z: 0 },
+                { prep: 'under', x: 0, y: 0.5, z: 1 },
+                { prep: 'next to', x: -4.5, y: 0.5, z: 0 },
+                { prep: 'behind', x: 0, y: 0.5, z: -4 },
+                { prep: 'in front of', x: 0, y: 0.5, z: 4 }
+            ],
+            box: [
+                { prep: 'in', x: 0, y: 0.5, z: 0 }, 
+                { prep: 'next to', x: -5.5, y: 0.5, z: 0 },
+                { prep: 'above', x: 0, y: 6.0, z: 0 },
+                { prep: 'in front of', x: 0, y: 0.5, z: 5.5 }
+            ]
+        };
+
+        let currentIdx = 0;
+        let lastPosIdx = -1;
+        let currentPrepObj = null;
+
+        function renderActivity() {
+            const act = activities[currentIdx];
+            document.getElementById('act-num').innerText = act.id;
+            document.getElementById('question').innerText = act.q;
+            
+            // Clear Scene
+            if(currentFixedGroup) scene.remove(currentFixedGroup);
+            if(currentMovingGroup) scene.remove(currentMovingGroup);
+
+            // Rebuild
+            currentFixedGroup = act.buildFixed();
+            scene.add(currentFixedGroup);
+
+            currentMovingGroup = act.buildMoving();
+            scene.add(currentMovingGroup);
+
+            // Reset camera
+            camera.position.set(0, 12, 25);
+            camera.lookAt(0, 2, 0);
+            if (controls) controls.target.set(0, 2, 0);
+
+            // Start position
+            lastPosIdx = -1;
+            randomizePosition();
+        }
+
+        function randomizePosition() {
+            if(!currentMovingGroup) return;
+            const act = activities[currentIdx];
+            const posArray = positions[act.fixed];
+            
+            let posIdx;
+            do { posIdx = Math.floor(Math.random() * posArray.length); } 
+            while (posIdx === lastPosIdx && posArray.length > 1);
+            lastPosIdx = posIdx;
+
+            currentPrepObj = posArray[posIdx];
+            targetPosition.set(currentPrepObj.x, currentPrepObj.y, currentPrepObj.z);
+            
+            // Hide the answer when moving
+            const ansContainer = document.getElementById('answer-container');
+            ansContainer.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => ansContainer.classList.add('hidden'), 500);
+        }
+
+        function revealAnswer() {
+            const act = activities[currentIdx];
+            const ansContainer = document.getElementById('answer-container');
+            const ansText = document.getElementById('answer-text');
+            
+            // Build the sentence
+            const sentence = `The ${act.moving} is <span class="text-pink-600">${currentPrepObj.prep}</span> the ${act.fixed}.`;
+            ansText.innerHTML = sentence;
+            
+            // Animate it in
+            ansContainer.classList.remove('hidden');
+            void ansContainer.offsetWidth; // Trigger reflow for CSS transition
+            ansContainer.classList.remove('scale-95', 'opacity-0');
+            ansContainer.classList.add('scale-100', 'opacity-100');
+        }
+
+        function changeActivity(dir) {
+            currentIdx = (currentIdx + dir + activities.length) % activities.length;
+            renderActivity();
+        }
+
+        // Animation Loop (handles smooth movement)
+        let time = 0;
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            time += 0.05;
+
+            if(controls) controls.update(); // Smoothly updates the camera
+
+            if(currentMovingGroup) {
+                // Smooth Lerp to target position
+                currentMovingGroup.position.lerp(targetPosition, 0.1);
+                
+                // Add a gentle floating effect if it's "above"
+                if (targetPosition.y > 5.5) {
+                    currentMovingGroup.position.y += Math.sin(time) * 0.05;
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle Window Resize
+        window.addEventListener('resize', () => {
+            if(!camera || !renderer) return;
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        // Initialize Three.js after DOM load
+        window.onload = initThree;
+
+    </script>
+<script>(function(){var b=document.createElement('button');b.textContent='🔑 AI Key';b.title='Set your free Gemini API key (aistudio.google.com/apikey) - stored only in this browser';b.style.cssText='position:fixed;bottom:10px;right:10px;z-index:2147483647;opacity:.55;font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid rgba(0,0,0,.15);background:rgba(255,255,255,.92);cursor:pointer;font-family:sans-serif';b.onclick=function(){var k=prompt('Paste your free Gemini API key (aistudio.google.com/apikey). Stored only in this browser:',localStorage.getItem('cth_gemini_key')||'');if(k!==null){localStorage.setItem('cth_gemini_key',k.trim());alert(k.trim()?'Key saved. Reload the page (F5) to enable AI features.':'Key cleared.');}};document.body.appendChild(b);})();</script>
+</body>
+</html>

@@ -10,6 +10,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
 
+    <!-- Shared Firebase config (Firestore backend, with localStorage fallback) -->
+    <script src="../firebase-config.js"></script>
+
     <style>
         /* Light stadium theme */
         :root {
@@ -588,6 +591,38 @@
             }
         }
     } catch(e){}
+
+    /* --- Cloud sync (Firestore) with localStorage fallback ---
+       Stores teacher-created vocabulary in vocab_custom/main.
+       Firestore wins when reachable; localStorage is the offline mirror. */
+    const VB_COLLECTION = 'vocab_custom';
+    const VB_DOC = 'main';
+
+    async function cloudLoadVocab() {
+        try {
+            const db = await window.cthDb();
+            const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+            const snap = await getDoc(doc(db, VB_COLLECTION, VB_DOC));
+            if (snap.exists()) {
+                const data = snap.data();
+                if (Array.isArray(data.words)) {
+                    VOCAB.Custom = data.words;
+                    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(VOCAB.Custom.filter(w=>w.word.trim()))); } catch(e){}
+                }
+            }
+        } catch (err) { /* offline — localStorage only */ }
+    }
+
+    async function cloudSaveVocab() {
+        try {
+            const db = await window.cthDb();
+            const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+            await setDoc(doc(db, VB_COLLECTION, VB_DOC), { words: VOCAB.Custom.filter(w=>w.word.trim()), updatedAt: Date.now() });
+        } catch (err) { /* offline — localStorage already written */ }
+    }
+
+    // pull cloud vocab once the page is ready
+    window.addEventListener('DOMContentLoaded', cloudLoadVocab);
 
     /* --- State --- */
     const POWERUPS = [
@@ -1645,6 +1680,7 @@
     }
     function saveCustomVocab(){
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(VOCAB.Custom.filter(w=>w.word.trim()))); } catch(e){}
+        cloudSaveVocab(); // mirror to Firestore
     }
 
     /* =====================================================================

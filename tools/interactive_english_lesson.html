@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Year 2 English: At the Beach</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #e0f2fe; /* light blue */
+            overflow: hidden; /* Prevent scrolling, act like a presentation */
+            user-select: none;
+        }
+        
+        .comic-font { font-family: 'Comic Neue', cursive; }
+
+        /* Backgrounds */
+        .bg-beach {
+            background: linear-gradient(to bottom, #7dd3fc 0%, #7dd3fc 50%, #fef08a 50%, #fde047 100%);
+        }
+        .bg-sand {
+            background: #fef08a;
+            background-image: radial-gradient(#fde047 2px, transparent 2px);
+            background-size: 20px 20px;
+        }
+
+        /* Animations */
+        @keyframes bounce-slow {
+            0%, 100% { transform: translateY(-5%); animation-timing-function: cubic-bezier(0.8,0,1,1); }
+            50% { transform: none; animation-timing-function: cubic-bezier(0,0,0.2,1); }
+        }
+        .animate-bounce-slow { animation: bounce-slow 3s infinite; }
+        
+        @keyframes pop-in {
+            0% { transform: scale(0.5); opacity: 0; }
+            70% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop-in { animation: pop-in 0.5s ease-out forwards; }
+
+        @keyframes wiggle {
+            0%, 100% { transform: rotate(-3deg); }
+            50% { transform: rotate(3deg); }
+        }
+        .animate-wiggle { animation: wiggle 1s ease-in-out infinite; }
+
+        @keyframes flash-green {
+            0%, 100% { background-color: white; }
+            50% { background-color: #4ade80; }
+        }
+        .flash-green { animation: flash-green 0.5s 2; }
+
+        @keyframes flash-red {
+            0%, 100% { background-color: white; }
+            50% { background-color: #f87171; }
+        }
+        .flash-red { animation: flash-red 0.5s 2; }
+
+        /* Interactive Elements */
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 9999px;
+            padding: 1rem 2rem;
+            font-size: 1.5rem;
+            font-weight: 900;
+            box-shadow: 0 10px 0 #2563eb;
+            transition: all 0.1s;
+            cursor: pointer;
+            border: 4px solid white;
+        }
+        .btn-primary:active {
+            transform: translateY(10px);
+            box-shadow: 0 0px 0 #2563eb;
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: translateY(10px);
+            box-shadow: 0 0px 0 #2563eb;
+        }
+
+        .btn-secondary {
+            background-color: #f59e0b;
+            color: white;
+            border-radius: 1rem;
+            padding: 1rem 2rem;
+            font-size: 1.5rem;
+            font-weight: 800;
+            box-shadow: 0 6px 0 #d97706;
+            transition: all 0.1s;
+            cursor: pointer;
+        }
+        .btn-secondary:active {
+            transform: translateY(6px);
+            box-shadow: 0 0px 0 #d97706;
+        }
+
+        /* Emojis acting as illustrations */
+        .big-emoji {
+            font-size: 8rem;
+            line-height: 1;
+            filter: drop-shadow(0 10px 8px rgb(0 0 0 / 0.1));
+        }
+        .med-emoji {
+            font-size: 5rem;
+            line-height: 1;
+        }
+
+        /* Picture Card Style */
+        .pic-card {
+            background: white;
+            border: 8px solid #cbd5e1;
+            border-radius: 2rem;
+            padding: 2rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Mystery Boxes */
+        .mystery-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            width: 80%;
+            height: 60%;
+            position: absolute;
+            gap: 10px;
+            z-index: 10;
+        }
+        .mystery-box {
+            background-color: #6366f1;
+            border: 4px solid white;
+            border-radius: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: white;
+            font-weight: bold;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        .mystery-box.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.8);
+        }
+
+        /* Hide scrollbar */
+        ::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col relative bg-sky-200">
+
+    <script>
+        // --- GLOBAL STATE ---
+        let currentSlide = 1;
+        const totalSlides = 42;
+        let redScore = 0;
+        let blueScore = 0;
+
+        // --- VOCABULARY DATA ---
+        const vocab = [
+            { word: "swim", emoji: "🏊", color: "text-blue-500" },
+            { word: "build a sandcastle", emoji: "🏰", color: "text-yellow-600" },
+            { word: "fly a kite", emoji: "🪁", color: "text-red-500" },
+            { word: "collect shells", emoji: "🐚", color: "text-orange-400" },
+            { word: "play beach ball", emoji: "🏐", color: "text-green-500" },
+            { word: "take photos", emoji: "📸", color: "text-purple-500" }
+        ];
+
+        // --- GAME DATA ---
+        const detectiveQuestions = [
+            { s: "Ben can build a sandcastle.", a: 1 },
+            { s: "Sara can collect shells.", a: 3 },
+            { s: "Adam can't swim.", a: 0, cross: true }, // special case for cross
+            { s: "Kim can fly a kite.", a: 2 },
+            { s: "Tom can play beach ball.", a: 4 },
+            { s: "Anna can take photos.", a: 5 },
+            { s: "He can swim.", a: 0 },
+            { s: "She can't fly a kite.", a: 2, cross: true },
+            { s: "Mei can collect shells.", a: 3 },
+            { s: "Ali can play beach ball.", a: 4 }
+        ];
+
+        const tfQuestions = [
+            { imgIdx: 2, s: "She can fly a kite.", ans: true },
+            { imgIdx: 1, s: "He can swim.", ans: false },
+            { imgIdx: 4, s: "They can play beach ball.", ans: true },
+            { imgIdx: 0, s: "She can collect shells.", ans: false },
+            { imgIdx: 5, s: "He can take photos.", ans: true }
+        ];
+
+        // --- AUDIO HELPERS ---
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 0.8; // Slow for ESL
+                utterance.pitch = 1.1; // Friendly
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+        function playSound(type) {
+            // Simulated sound effects using Speech API as fallback since no assets allowed
+            if ('speechSynthesis' in window) {
+                const u = new SpeechSynthesisUtterance(type === 'correct' ? 'Ding!' : 'Oops!');
+                u.rate = 1.5;
+                window.speechSynthesis.speak(u);
+            }
+        }
+
+        // --- NAVIGATION HELPERS ---
+        function nextSlide() {
+            if (currentSlide < totalSlides) {
+                currentSlide++;
+                render();
+            }
+        }
+        function prevSlide() {
+            if (currentSlide > 1) {
+                currentSlide--;
+                render();
+            }
+        }
+        function goHome() {
+            currentSlide = 1;
+            render();
+        }
+        function changeScore(team, amount) {
+            if (team === 'red') redScore += amount;
+            if (team === 'blue') blueScore += amount;
+            updateScoreUI();
+        }
+        function resetScore() {
+            redScore = 0; blueScore = 0;
+            updateScoreUI();
+        }
+        function updateScoreUI() {
+            const r = document.getElementById('score-red');
+            const b = document.getElementById('score-blue');
+            if(r) r.innerText = redScore;
+            if(b) b.innerText = blueScore;
+        }
+    </script>
+
+    <!-- Top Classroom Management Bar (Hidden by default, shown on games) -->
+    <div id="class-management" class="hidden absolute top-4 left-0 w-full z-50 flex justify-center">
+        <div class="bg-white px-6 py-2 rounded-full border-4 border-gray-200 shadow-lg flex gap-6 text-xl font-bold text-gray-600">
+            <span>👀 Eyes on screen</span>
+            <span>🤫 Quiet discussion</span>
+            <span>🪑 Stay seated</span>
+        </div>
+    </div>
+
+    <!-- Scoreboard (Hidden by default) -->
+    <div id="scoreboard" class="hidden absolute top-20 right-4 z-50 bg-white p-4 rounded-2xl border-4 border-gray-200 shadow-xl flex flex-col gap-2">
+        <div class="text-center font-black text-gray-400 mb-1">SCORE</div>
+        <div class="flex items-center gap-4">
+            <div class="bg-red-500 text-white rounded-lg p-2 text-center w-24">
+                <div class="font-bold">RED</div>
+                <div id="score-red" class="text-3xl font-black">0</div>
+                <button onclick="changeScore('red', 1)" class="mt-1 bg-white text-red-500 px-2 rounded font-bold text-sm hover:bg-red-100">+1</button>
+            </div>
+            <div class="bg-blue-500 text-white rounded-lg p-2 text-center w-24">
+                <div class="font-bold">BLUE</div>
+                <div id="score-blue" class="text-3xl font-black">0</div>
+                <button onclick="changeScore('blue', 1)" class="mt-1 bg-white text-blue-500 px-2 rounded font-bold text-sm hover:bg-blue-100">+1</button>
+            </div>
+        </div>
+        <button onclick="resetScore()" class="mt-2 text-sm text-gray-500 underline">Reset</button>
+    </div>
+
+    <!-- Main Slide Container -->
+    <main id="slide-container" class="flex-grow relative flex items-center justify-center overflow-hidden">
+        <!-- Slides rendered here via JS -->
+    </main>
+
+    <!-- Navigation Bar -->
+    <nav class="h-24 bg-white border-t-4 border-gray-200 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] flex items-center justify-between px-8 z-50">
+        <button onclick="goHome()" class="p-3 bg-gray-100 rounded-full hover:bg-gray-200 text-3xl transition-transform hover:scale-110">🏠</button>
+        
+        <div class="flex items-center gap-4">
+            <span class="text-gray-400 font-bold text-xl">SLIDE <span id="slide-num">1</span> / 42</span>
+        </div>
+
+        <div class="flex gap-4">
+            <button onclick="prevSlide()" class="btn-secondary flex items-center gap-2">
+                <span>◀</span> BACK
+            </button>
+            <button id="next-btn" onclick="nextSlide()" class="btn-primary flex items-center gap-2">
+                NEXT <span>▶</span>
+            </button>
+        </div>
+    </nav>
+
+    <script>
+        function getSlideHTML(slideNumber) {
+            let html = '';
+            
+            // --- Slide 1: Title ---
+            if (slideNumber === 1) {
+                html = `
+                    <div class="w-full h-full bg-beach flex flex-col items-center justify-center relative overflow-hidden">
+                        <!-- Decorations -->
+                        <div class="absolute top-10 left-10 text-6xl animate-wiggle">☁️</div>
+                        <div class="absolute top-20 right-20 text-6xl animate-wiggle" style="animation-delay: 0.5s">☁️</div>
+                        <div class="absolute bottom-10 left-10 text-8xl animate-bounce-slow">🦀</div>
+                        <div class="absolute bottom-20 right-10 text-9xl">⛱️</div>
+                        
+                        <div class="bg-white/90 p-12 rounded-3xl border-8 border-yellow-400 shadow-2xl text-center z-10 animate-pop-in max-w-4xl">
+                            <h2 class="text-3xl text-sky-600 font-bold mb-4 uppercase tracking-wider">Unit 9 – At the Beach</h2>
+                            <h1 class="text-7xl font-black text-orange-500 mb-8 comic-font drop-shadow-md leading-tight">WHAT CAN WE DO<br>AT THE BEACH?</h1>
+                            <button onclick="nextSlide()" class="btn-primary text-4xl py-4 px-12 animate-pulse mt-4">START 🚀</button>
+                        </div>
+                    </div>`;
+            }
+            // --- Slide 2: Mystery ---
+            else if (slideNumber === 2) {
+                html = `
+                    <div class="w-full h-full bg-cyan-100 flex flex-col items-center justify-center">
+                        <h1 class="text-6xl font-black text-blue-600 mb-8">Where are we?</h1>
+                        <div class="relative w-[800px] h-[500px] border-8 border-white rounded-3xl shadow-2xl overflow-hidden bg-beach flex items-center justify-center">
+                            <!-- Hidden picture underneath -->
+                            <div class="absolute text-[15rem]">⛱️🦀🏐</div>
+                            
+                            <!-- Overlay Boxes -->
+                            <div class="mystery-grid" id="mystery-grid">
+                                <div class="mystery-box" onclick="revealBox(this)">1</div>
+                                <div class="mystery-box" onclick="revealBox(this)">2</div>
+                                <div class="mystery-box" onclick="revealBox(this)">3</div>
+                                <div class="mystery-box" onclick="revealBox(this)">4</div>
+                                <div class="mystery-box" onclick="revealBox(this)">5</div>
+                                <div class="mystery-box" onclick="revealBox(this)">6</div>
+                            </div>
+                            
+                            <div id="mystery-reveal-text" class="hidden absolute text-8xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] z-20 animate-pop-in">
+                                AT THE BEACH!
+                            </div>
+                        </div>
+                        <p class="mt-6 text-2xl text-gray-500 font-bold bg-white px-6 py-2 rounded-full shadow">(Click the boxes to reveal)</p>
+                    </div>`;
+            }
+            // --- Slide 3: Today's Question ---
+            else if (slideNumber === 3) {
+                html = `
+                    <div class="w-full h-full bg-sand flex flex-col items-center justify-center">
+                        <h1 class="text-7xl font-black text-red-500 bg-white p-6 rounded-3xl border-8 border-red-200 shadow-xl mb-12 comic-font animate-bounce-slow text-center">
+                            What can we do<br>at the beach?
+                        </h1>
+                        <div class="grid grid-cols-3 gap-12">
+                            ${vocab.map(v => `<div class="w-32 h-32 bg-sky-200 rounded-full flex items-center justify-center text-7xl shadow-inner border-4 border-sky-300 blur-[6px] grayscale brightness-50">${v.emoji}</div>`).join('')}
+                        </div>
+                    </div>`;
+            }
+            // --- Slides 4-9: Vocab Presentation ---
+            else if (slideNumber >= 4 && slideNumber <= 9) {
+                const v = vocab[slideNumber - 4];
+                html = `
+                    <div class="w-full h-full bg-gradient-to-br from-green-100 to-blue-100 flex flex-col items-center justify-center">
+                        <div class="pic-card w-1/2 max-w-2xl animate-pop-in text-center relative">
+                            <button onclick="speak('${v.word}')" class="absolute top-4 right-4 bg-sky-500 text-white p-4 rounded-full shadow-lg hover:bg-sky-400 hover:scale-110 transition-all text-3xl">
+                                🔊
+                            </button>
+                            <div class="text-[12rem] mb-4">${v.emoji}</div>
+                            <h1 class="text-8xl font-black ${v.color} uppercase tracking-tight leading-none mb-8 comic-font">${v.word}</h1>
+                            <button onclick="speak('${v.word}')" class="btn-primary text-3xl mt-4">🗣️ Say it!</button>
+                        </div>
+                    </div>`;
+            }
+            // --- Slide 10: Vocab Recall ---
+            else if (slideNumber === 10) {
+                html = `
+                    <div class="w-full h-full bg-yellow-50 flex flex-col items-center justify-center">
+                        <h1 class="text-6xl font-black text-orange-500 mb-8 bg-white px-8 py-4 rounded-full shadow-md border-4 border-orange-200">What is it?</h1>
+                        <div class="grid grid-cols-3 gap-8 w-4/5 max-w-5xl">
+                            ${vocab.map((v, i) => `
+                                <div class="pic-card cursor-pointer hover:scale-105 transition-transform" onclick="revealVocab(this, '${v.word}')">
+                                    <div class="absolute top-2 left-2 bg-gray-800 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl">${i+1}</div>
+                                    <div class="text-8xl mb-2">${v.emoji}</div>
+                                    <div class="vocab-text hidden text-3xl font-black ${v.color} uppercase text-center mt-2">${v.word}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+            }
+
+            // --- Slide 11: Intro CAN ---
+            else if (slideNumber === 11) {
+                html = `
+                    <div class="w-full h-full bg-sky-100 flex flex-col items-center justify-center">
+                        <div class="flex items-center gap-12 bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-green-400">
+                            <div class="text-[12rem] bg-sky-200 rounded-full w-64 h-64 flex items-center justify-center border-8 border-sky-300">🏊</div>
+                            <div class="flex flex-col gap-6">
+                                <h1 class="text-8xl font-black text-gray-700">I <span class="text-green-500 underline decoration-green-500 decoration-8">CAN</span> SWIM.</h1>
+                                <div class="bg-green-100 p-6 rounded-2xl border-4 border-green-300 text-3xl font-bold text-green-700 flex items-center gap-4">
+                                    <span class="text-5xl text-green-600">✓</span> CAN = able to do something
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+            // --- Slide 12: More CAN ---
+            else if (slideNumber === 12) {
+                html = `
+                    <div class="w-full h-full bg-sky-50 flex flex-col items-center justify-start pt-20">
+                        <h1 class="text-6xl font-black text-blue-600 mb-12">More Examples</h1>
+                        <div class="flex flex-col gap-6 w-3/4 max-w-4xl">
+                            <div class="can-example opacity-0 flex items-center gap-8 bg-white p-6 rounded-2xl shadow border-4 border-gray-100 transition-opacity duration-500">
+                                <div class="text-7xl">🏊</div><h2 class="text-5xl font-bold text-gray-700">I <span class="text-green-500">can</span> swim.</h2>
+                            </div>
+                            <div class="can-example opacity-0 flex items-center gap-8 bg-white p-6 rounded-2xl shadow border-4 border-gray-100 transition-opacity duration-500" style="transition-delay: 200ms">
+                                <div class="text-7xl">🪁</div><h2 class="text-5xl font-bold text-gray-700">I <span class="text-green-500">can</span> fly a kite.</h2>
+                            </div>
+                            <div class="can-example opacity-0 flex items-center gap-8 bg-white p-6 rounded-2xl shadow border-4 border-gray-100 transition-opacity duration-500" style="transition-delay: 400ms">
+                                <div class="text-7xl">🏰</div><h2 class="text-5xl font-bold text-gray-700">I <span class="text-green-500">can</span> build a sandcastle.</h2>
+                            </div>
+                        </div>
+                        <button onclick="revealCanExamples()" class="btn-primary mt-12 text-2xl">Reveal Examples</button>
+                    </div>`;
+            }
+            // --- Slide 13: Intro CAN'T ---
+            else if (slideNumber === 13) {
+                html = `
+                    <div class="w-full h-full bg-rose-50 flex flex-col items-center justify-center">
+                        <div class="flex items-center gap-12 bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-red-400">
+                            <div class="relative text-[12rem] bg-rose-200 rounded-full w-64 h-64 flex items-center justify-center border-8 border-rose-300">
+                                🏄‍♂️
+                                <div class="absolute -bottom-4 -right-4 text-8xl text-red-600 drop-shadow-lg">❌</div>
+                            </div>
+                            <div class="flex flex-col gap-6">
+                                <h1 class="text-8xl font-black text-gray-700">I <span class="text-red-500 underline decoration-red-500 decoration-8">CAN'T</span> SURF.</h1>
+                                <div class="bg-red-100 p-6 rounded-2xl border-4 border-red-300 text-3xl font-bold text-red-700 flex items-center gap-4">
+                                    <span class="text-5xl text-red-600">✗</span> CAN'T = not able to do something
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+            // --- Slide 14: CAN vs CAN'T ---
+            else if (slideNumber === 14) {
+                html = `
+                    <div class="w-full h-full flex">
+                        <div class="w-1/2 bg-green-100 flex flex-col items-center justify-center p-12 border-r-8 border-white">
+                            <div class="text-9xl mb-8 text-green-500 drop-shadow-md">✓</div>
+                            <div class="pic-card border-green-300">
+                                <div class="text-8xl mb-4">👦🏊</div>
+                                <h2 class="text-5xl font-black text-gray-700 mt-4">I <span class="text-green-500">can</span> swim.</h2>
+                            </div>
+                        </div>
+                        <div class="w-1/2 bg-red-100 flex flex-col items-center justify-center p-12">
+                            <div class="text-9xl mb-8 text-red-500 drop-shadow-md">✗</div>
+                            <div class="pic-card border-red-300 relative">
+                                <div class="text-8xl mb-4 grayscale brightness-75">👦🏊</div>
+                                <div class="absolute top-10 right-10 text-6xl text-red-500 font-bold">🚫</div>
+                                <h2 class="text-5xl font-black text-gray-700 mt-4">I <span class="text-red-500">can't</span> swim.</h2>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+            // --- Slide 15: Sentence Structure ---
+            else if (slideNumber === 15) {
+                html = `
+                    <div class="w-full h-full bg-yellow-100 flex flex-col items-center justify-center">
+                        <h1 class="text-6xl font-black text-purple-600 mb-16">How to make a sentence</h1>
+                        
+                        <div class="flex items-center gap-4 text-4xl font-bold mb-16 bg-white p-8 rounded-full shadow-lg">
+                            <div class="bg-blue-200 px-6 py-4 rounded-xl">PERSON</div>
+                            <div class="text-gray-400">+</div>
+                            <div class="bg-yellow-200 px-6 py-4 rounded-xl">CAN / CAN'T</div>
+                            <div class="text-gray-400">+</div>
+                            <div class="bg-red-200 px-6 py-4 rounded-xl">ACTION</div>
+                        </div>
+
+                        <div class="flex items-center gap-6 text-6xl font-black">
+                            <div class="text-blue-500 animate-pop-in">Ali</div>
+                            <div class="text-yellow-500 animate-pop-in" style="animation-delay: 0.5s">can</div>
+                            <div class="text-red-500 animate-pop-in" style="animation-delay: 1s">swim.</div>
+                        </div>
+                        
+                        <div class="mt-8 text-7xl font-black text-gray-800 animate-pop-in comic-font border-b-8 border-gray-800 pb-2" style="animation-delay: 2s">
+                            Ali can swim.
+                        </div>
+                    </div>`;
+            }
+
+            // --- Slide 16-18: Guided Practice ---
+            else if (slideNumber >= 16 && slideNumber <= 18) {
+                let data;
+                if (slideNumber === 16) data = { q: "What can she do?", img: "👧🪁", qtext: "Choose the correct sentence:", opts: ["She can fly a kite.", "She can swim."], ans: 0 };
+                if (slideNumber === 17) data = { q: "Fill in the blank", img: "👦🐚", qtext: "He ______ collect shells.", opts: ["CAN", "CAN'T"], ans: 0 };
+                if (slideNumber === 18) data = { q: "Fill in the blank", img: "👧🏊🚫", qtext: "She ______ swim.", opts: ["CAN", "CAN'T"], ans: 1 };
+
+                html = `
+                    <div class="w-full h-full bg-cyan-50 flex flex-col items-center justify-center relative">
+                        <h1 class="text-5xl font-black text-gray-500 mb-8">${data.q}</h1>
+                        <div class="flex gap-12 items-center">
+                            <div class="text-[12rem] bg-white p-8 rounded-[3rem] shadow-xl border-8 border-sky-200 flex items-center justify-center relative">
+                                ${data.img.replace('🚫', '')}
+                                ${data.img.includes('🚫') ? '<div class="absolute -bottom-4 -right-4 text-7xl text-red-500 bg-white rounded-full">❌</div>' : '<div class="absolute -bottom-4 -right-4 text-7xl text-green-500 bg-white rounded-full">✅</div>'}
+                            </div>
+                            <div class="flex flex-col gap-8 w-[600px]">
+                                <h2 class="text-5xl font-bold text-gray-800 text-center mb-4 comic-font">${data.qtext}</h2>
+                                ${data.opts.map((opt, i) => `
+                                    <button onclick="handlePracticeAnswer(this, ${i === data.ans})" class="btn-primary text-4xl py-6 !bg-white !text-blue-600 !border-blue-300 hover:!bg-blue-50 w-full text-left pl-10 relative overflow-hidden group">
+                                        <span class="font-bold text-gray-400 mr-4">${i === 0 ? 'A.' : 'B.'}</span> ${opt}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+                        
+                        <!-- Feedback Overlay -->
+                        <div id="practice-feedback" class="hidden absolute inset-0 bg-white/90 z-20 flex flex-col items-center justify-center">
+                            <div id="pf-icon" class="text-[15rem] animate-pop-in">✅</div>
+                            <div id="pf-text" class="text-7xl font-black mt-4">Great!</div>
+                            <button onclick="nextSlide()" class="btn-primary mt-12 text-3xl hidden" id="pf-next">NEXT ▶</button>
+                        </div>
+                    </div>`;
+            }
+
+            // --- Slide 19: Detective Intro ---
+            else if (slideNumber === 19) {
+                html = `
+                    <div class="w-full h-full bg-gray-900 flex flex-col items-center justify-center relative overflow-hidden">
+                        <!-- Spotlights -->
+                        <div class="absolute top-0 left-1/4 w-32 h-[150%] bg-white/10 rotate-45 transform origin-top blur-xl"></div>
+                        <div class="absolute top-0 right-1/4 w-32 h-[150%] bg-white/10 -rotate-45 transform origin-top blur-xl"></div>
+                        
+                        <div class="text-[10rem] mb-4 drop-shadow-2xl">🕵️‍♂️⛱️</div>
+                        <h1 class="text-8xl font-black text-yellow-400 tracking-widest mb-8 text-center" style="text-shadow: 0 5px 0 #b45309;">BEACH DETECTIVE!</h1>
+                        <div class="bg-white/10 p-8 rounded-3xl backdrop-blur-sm border-2 border-white/20 text-center mb-12">
+                            <p class="text-4xl font-bold text-white mb-2">Read the sentence.</p>
+                            <p class="text-4xl font-bold text-white">Find the correct picture!</p>
+                        </div>
+                        <button onclick="nextSlide()" class="btn-primary text-5xl py-6 px-16 !bg-yellow-400 !text-gray-900 !border-yellow-200 shadow-[0_10px_0_#b45309] hover:!bg-yellow-300">START GAME</button>
+                    </div>`;
+            }
+            // --- Slides 20-29: Detective Game ---
+            else if (slideNumber >= 20 && slideNumber <= 29) {
+                const qIdx = slideNumber - 20;
+                const q = detectiveQuestions[qIdx];
+                
+                // Generate 4 options (1 correct, 3 random incorrect)
+                let options = [vocab[q.a]];
+                let available = vocab.filter((_, i) => i !== q.a);
+                // Shuffle available
+                available.sort(() => 0.5 - Math.random());
+                options.push(available[0], available[1], available[2]);
+                
+                // Shuffle options for display and remember correct index
+                options.sort(() => 0.5 - Math.random());
+                const correctDisplayIndex = options.findIndex(o => o.word === vocab[q.a].word);
+
+                html = `
+                    <div class="w-full h-full bg-blue-50 flex flex-col items-center justify-start pt-24 relative">
+                        
+                        <!-- Timer -->
+                        <div class="absolute top-8 left-8 flex flex-col items-center">
+                            <div class="text-sm font-bold text-gray-400 mb-1">TIMER</div>
+                            <div id="det-timer" class="w-24 h-24 rounded-full bg-white border-8 border-gray-200 shadow-inner flex items-center justify-center text-4xl font-black text-gray-700">10</div>
+                        </div>
+
+                        <!-- Question Box -->
+                        <div class="bg-white px-12 py-8 rounded-[3rem] shadow-xl border-b-8 border-blue-200 mb-12 flex items-center gap-6">
+                            <button onclick="speak('${q.s}')" class="text-4xl bg-blue-100 p-4 rounded-full hover:bg-blue-200 transition-colors">🔊</button>
+                            <h1 class="text-6xl font-black text-gray-800 comic-font">${q.s}</h1>
+                        </div>
+
+                        <!-- Options Grid -->
+                        <div class="grid grid-cols-2 gap-8 w-3/4 max-w-5xl">
+                            ${options.map((opt, i) => `
+                                <button onclick="handleDetectiveGame(this, ${i === correctDisplayIndex}, ${slideNumber})" class="det-option pic-card relative overflow-hidden group hover:border-blue-400 hover:scale-[1.02] transition-all bg-white">
+                                    <div class="absolute top-4 left-4 bg-gray-100 text-gray-500 w-12 h-12 rounded-full flex items-center justify-center font-bold text-2xl group-hover:bg-blue-500 group-hover:text-white">${['A','B','C','D'][i]}</div>
+                                    <div class="text-[8rem] mt-6 relative">
+                                        ${opt.emoji}
+                                        ${q.cross && i === correctDisplayIndex ? '<div class="absolute inset-0 flex items-center justify-center text-[10rem] text-red-500/80 drop-shadow-md">❌</div>' : ''}
+                                        ${q.cross && i !== correctDisplayIndex ? '<div class="absolute inset-0 flex items-center justify-center text-[10rem] text-green-500/80 drop-shadow-md">✅</div>' : ''}
+                                    </div>
+                                </button>
+                            `).join('')}
+                        </div>
+
+                        <!-- Feedback Overlay -->
+                        <div id="det-feedback-${slideNumber}" class="hidden absolute inset-0 bg-black/80 z-30 flex flex-col items-center justify-center">
+                            <div id="df-icon-${slideNumber}" class="text-[15rem] animate-pop-in">✅</div>
+                            <div id="df-text-${slideNumber}" class="text-8xl font-black mt-4 text-white uppercase tracking-widest">CORRECT!</div>
+                            <button onclick="nextSlide()" class="btn-primary mt-12 text-3xl hidden !bg-yellow-400 !text-gray-900 !border-yellow-200" id="df-next-${slideNumber}">NEXT QUESTION ▶</button>
+                        </div>
+                    </div>`;
+                
+                // Set timer logic
+                setTimeout(() => startTimer(slideNumber), 100);
+            }
+
+            // --- Slide 30: T/F Intro ---
+            else if (slideNumber === 30) {
+                html = `
+                    <div class="w-full h-full bg-gradient-to-r from-green-400 to-blue-500 flex flex-col items-center justify-center text-white">
+                        <div class="text-[8rem] mb-4 bg-white/20 p-8 rounded-full backdrop-blur-md">🤔</div>
+                        <h1 class="text-8xl font-black mb-12 drop-shadow-lg">TRUE OR FALSE?</h1>
+                        <div class="flex gap-12 text-5xl font-bold bg-white/10 p-8 rounded-3xl border-2 border-white/30 backdrop-blur-sm">
+                            <div class="flex flex-col items-center"><span class="text-6xl mb-2">👀</span> Look.</div>
+                            <div class="flex flex-col items-center"><span class="text-6xl mb-2">📖</span> Read.</div>
+                            <div class="flex flex-col items-center"><span class="text-6xl mb-2">👆</span> Choose.</div>
+                        </div>
+                        <button onclick="nextSlide()" class="btn-primary mt-16 text-4xl !bg-white !text-blue-600 !border-blue-200">START</button>
+                    </div>`;
+            }
+            // --- Slides 31-35: T/F Game ---
+            else if (slideNumber >= 31 && slideNumber <= 35) {
+                const q = tfQuestions[slideNumber - 31];
+                html = `
+                    <div class="w-full h-full bg-gray-50 flex flex-col items-center justify-center relative">
+                        <div class="flex gap-16 items-center w-4/5 max-w-6xl">
+                            <!-- Image Side -->
+                            <div class="w-1/2 flex justify-center">
+                                <div class="pic-card !p-12 !border-8 !border-gray-300 w-full aspect-square flex items-center justify-center">
+                                    <div class="text-[12rem] bg-sky-100 rounded-full w-[20rem] h-[20rem] flex items-center justify-center shadow-inner">
+                                        ${vocab[q.imgIdx].emoji}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Question Side -->
+                            <div class="w-1/2 flex flex-col items-center gap-12">
+                                <div class="bg-white p-8 w-full text-center rounded-3xl shadow border-4 border-blue-100 relative">
+                                    <button onclick="speak('${q.s}')" class="absolute -top-6 -right-6 text-3xl bg-blue-500 text-white p-4 rounded-full shadow-lg hover:scale-110 transition">🔊</button>
+                                    <h2 class="text-6xl font-black text-gray-800 comic-font leading-tight">"${q.s}"</h2>
+                                </div>
+                                
+                                <div class="flex gap-8 w-full">
+                                    <button onclick="handleTFAnswer(${q.ans === true}, ${slideNumber})" class="flex-1 bg-green-500 text-white rounded-[2rem] p-8 text-5xl font-black border-b-8 border-green-700 active:border-b-0 active:translate-y-2 transition-all hover:bg-green-400 shadow-xl flex flex-col items-center justify-center gap-2">
+                                        <span>✓</span> TRUE
+                                    </button>
+                                    <button onclick="handleTFAnswer(${q.ans === false}, ${slideNumber})" class="flex-1 bg-red-500 text-white rounded-[2rem] p-8 text-5xl font-black border-b-8 border-red-700 active:border-b-0 active:translate-y-2 transition-all hover:bg-red-400 shadow-xl flex flex-col items-center justify-center gap-2">
+                                        <span>✗</span> FALSE
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Feedback Overlay -->
+                        <div id="tf-feedback-${slideNumber}" class="hidden absolute inset-0 bg-white/95 z-30 flex flex-col items-center justify-center">
+                            <div id="tff-icon-${slideNumber}" class="text-[12rem] animate-pop-in">✅</div>
+                            <button onclick="nextSlide()" class="btn-primary mt-12 text-3xl" id="tff-next-${slideNumber}">NEXT ▶</button>
+                        </div>
+                    </div>`;
+            }
+
+            // --- Slide 36: Writing Time ---
+            else if (slideNumber === 36) {
+                html = `
+                    <div class="w-full h-full bg-amber-50 flex flex-col items-center py-12 px-8">
+                        <h1 class="text-6xl font-black text-amber-600 mb-4 tracking-widest bg-white px-12 py-4 rounded-full shadow-md border-4 border-amber-200">NOW YOU TRY!</h1>
+                        <p class="text-3xl font-bold text-gray-500 mb-8">Complete your worksheet.</p>
+                        
+                        <div class="bg-white p-12 rounded-3xl shadow-xl w-3/4 max-w-4xl border-l-8 border-amber-400 flex flex-col gap-8 mb-8">
+                            <div class="text-5xl font-bold text-gray-700 comic-font border-b-4 border-gray-200 pb-2">1. I <span class="text-green-500">can</span> _______________.</div>
+                            <div class="text-5xl font-bold text-gray-700 comic-font border-b-4 border-gray-200 pb-2">2. I <span class="text-green-500">can</span> _______________.</div>
+                            <div class="text-5xl font-bold text-gray-700 comic-font border-b-4 border-gray-200 pb-2">3. I <span class="text-red-500">can't</span> _______________.</div>
+                        </div>
+
+                        <!-- Mini word bank at bottom -->
+                        <div class="bg-sky-100 p-6 rounded-2xl flex gap-6 justify-center w-full max-w-5xl shadow-inner border-4 border-sky-200">
+                            ${vocab.map(v => `
+                                <div class="flex flex-col items-center bg-white p-2 rounded-xl border-2 border-gray-200 w-32">
+                                    <div class="text-4xl mb-1">${v.emoji}</div>
+                                    <div class="text-sm font-bold text-center leading-tight ${v.color}">${v.word}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+            }
+            // --- Slide 37: Word Bank ---
+            else if (slideNumber === 37) {
+                html = `
+                    <div class="w-full h-full bg-indigo-50 flex flex-col items-center justify-center p-12">
+                        <h1 class="text-6xl font-black text-indigo-600 mb-12 uppercase tracking-widest border-b-8 border-indigo-200 pb-4">Word Bank</h1>
+                        <div class="grid grid-cols-3 gap-10 w-full max-w-6xl">
+                            ${vocab.map(v => `
+                                <div class="bg-white rounded-3xl p-6 flex flex-col items-center justify-center shadow-lg border-4 border-indigo-100">
+                                    <div class="text-[7rem] mb-4">${v.emoji}</div>
+                                    <div class="text-4xl font-black text-gray-800 comic-font text-center">${v.word}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+            }
+            // --- Slide 38: Check Writing ---
+            else if (slideNumber === 38) {
+                html = `
+                    <div class="w-full h-full bg-emerald-50 flex flex-col items-center justify-center">
+                        <div class="bg-white p-16 rounded-[3rem] shadow-2xl border-8 border-emerald-400 w-3/4 max-w-4xl">
+                            <h1 class="text-6xl font-black text-emerald-600 mb-12 text-center border-b-4 border-emerald-100 pb-6">Check Your Writing</h1>
+                            
+                            <div class="flex flex-col gap-6 text-4xl font-bold text-gray-700 mb-12">
+                                <div class="flex items-center gap-6"><div class="w-12 h-12 border-4 border-gray-300 rounded-lg flex items-center justify-center text-green-500 font-black text-3xl">✓</div> Capital letter</div>
+                                <div class="flex items-center gap-6"><div class="w-12 h-12 border-4 border-gray-300 rounded-lg flex items-center justify-center text-green-500 font-black text-3xl">✓</div> can / can't</div>
+                                <div class="flex items-center gap-6"><div class="w-12 h-12 border-4 border-gray-300 rounded-lg flex items-center justify-center text-green-500 font-black text-3xl">✓</div> activity word</div>
+                                <div class="flex items-center gap-6"><div class="w-12 h-12 border-4 border-gray-300 rounded-lg flex items-center justify-center text-green-500 font-black text-3xl">✓</div> full stop</div>
+                            </div>
+                            
+                            <div class="bg-emerald-100 p-8 rounded-2xl text-center">
+                                <span class="text-3xl text-emerald-600 font-bold mb-2 block">Example:</span>
+                                <div class="text-6xl font-black text-gray-800 comic-font"><span class="text-red-500 underline">I</span> can swim<span class="text-red-500 underline">.</span></div>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+            // --- Slide 39: Challenge ---
+            else if (slideNumber === 39) {
+                html = `
+                    <div class="w-full h-full bg-purple-50 flex flex-col items-center justify-center">
+                        <div class="text-8xl mb-6 animate-bounce-slow">⭐</div>
+                        <h1 class="text-6xl font-black text-purple-600 mb-12 bg-white px-12 py-4 rounded-full shadow-lg border-4 border-purple-200">CHALLENGE</h1>
+                        <p class="text-4xl font-bold text-gray-600 mb-12">Can you make a longer sentence?</p>
+                        
+                        <div class="bg-white p-12 rounded-3xl shadow-xl flex items-center gap-6 text-5xl font-bold text-gray-800 comic-font">
+                            I can <div class="flex flex-col items-center bg-blue-50 px-4 rounded-lg"><span class="text-4xl">🏊</span>swim</div> 
+                            <span class="bg-purple-500 text-white px-6 py-2 rounded-xl mx-4 shadow">and</span> 
+                            <div class="flex flex-col items-center bg-green-50 px-4 rounded-lg"><span class="text-4xl">🏐</span>play beach ball</div>.
+                        </div>
+                    </div>`;
+            }
+            // --- Slide 40: Exit Ticket ---
+            else if (slideNumber === 40) {
+                html = `
+                    <div class="w-full h-full bg-orange-50 flex flex-col items-center py-12 px-8">
+                        <h1 class="text-5xl font-black text-orange-600 mb-2 bg-white px-10 py-3 rounded-full shadow-sm border-4 border-orange-100">EXIT TICKET</h1>
+                        <p class="text-3xl font-bold text-gray-500 mb-12">One thing I can do...</p>
+                        
+                        <div class="bg-white p-12 rounded-2xl shadow-xl w-3/4 max-w-4xl border-dashed border-4 border-gray-300 mb-12">
+                            <div class="text-5xl font-black text-gray-800 comic-font text-center leading-loose">
+                                At the beach,<br>I can ___________________.
+                            </div>
+                        </div>
+
+                        <div class="flex gap-4">
+                            ${vocab.map(v => `<div class="text-[5rem] bg-white p-4 rounded-full shadow border-2 border-gray-100">${v.emoji}</div>`).join('')}
+                        </div>
+                    </div>`;
+            }
+            // --- Slide 41: Final Recap ---
+            else if (slideNumber === 41) {
+                html = `
+                    <div class="w-full h-full bg-beach flex flex-col items-center justify-center p-8 relative">
+                        <div class="absolute top-8 left-8 bg-white/90 p-4 rounded-xl flex gap-8 text-4xl font-black shadow-lg">
+                            <div class="text-green-500">CAN = ✓</div>
+                            <div class="text-red-500">CAN'T = ✗</div>
+                        </div>
+                        
+                        <h1 class="text-7xl font-black text-blue-700 bg-white/80 px-12 py-4 rounded-[3rem] shadow-xl mt-12 mb-8 comic-font text-center leading-tight">
+                            What can you do<br>at the beach?
+                        </h1>
+                        
+                        <div class="grid grid-cols-3 gap-6 w-[90%] max-w-6xl">
+                            ${vocab.map((v, i) => `
+                                <div class="bg-white/90 rounded-2xl p-4 flex flex-col items-center justify-center shadow-lg cursor-pointer hover:bg-white transition-colors" onclick="revealVocab(this, '${v.word}')">
+                                    <div class="text-[6rem] mb-2">${v.emoji}</div>
+                                    <div class="vocab-text hidden text-2xl font-black ${v.color} uppercase text-center w-full bg-gray-100 py-2 rounded">${v.word}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+            }
+            // --- Slide 42: End ---
+            else if (slideNumber === 42) {
+                html = `
+                    <div class="w-full h-full bg-beach flex flex-col items-center justify-center relative overflow-hidden">
+                        <!-- Confetti simulated with absolute divs -->
+                        ${Array.from({length: 30}).map((_, i) => {
+                            const colors = ['bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500'];
+                            const c = colors[Math.floor(Math.random() * colors.length)];
+                            const l = Math.random() * 100;
+                            const t = Math.random() * 100;
+                            const animDur = 2 + Math.random() * 3;
+                            return `<div class="absolute w-4 h-4 ${c} rounded-sm opacity-70 animate-bounce-slow" style="left: ${l}%; top: ${t}%; animation-duration: ${animDur}s;"></div>`;
+                        }).join('')}
+                        
+                        <div class="bg-white/90 p-16 rounded-[4rem] shadow-2xl text-center z-10 border-8 border-sky-300 transform -rotate-2">
+                            <h1 class="text-[6rem] font-black text-orange-500 mb-4 comic-font drop-shadow-md">GREAT JOB, 2M!</h1>
+                            <h2 class="text-5xl font-bold text-sky-600">See you next lesson!</h2>
+                            <div class="mt-8 text-8xl flex justify-center gap-8">
+                                <span class="animate-wiggle">👦</span>
+                                <span class="animate-bounce-slow text-yellow-400">🏆</span>
+                                <span class="animate-wiggle" style="animation-delay: 0.5s">👧</span>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+
+            return html;
+        }
+
+
+        // --- Navigation Update ---
+        function updateNavigation() {
+            document.getElementById('slide-num').innerText = currentSlide;
+            
+            // Show/hide UI elements based on slide type
+            const cm = document.getElementById('class-management');
+            const sb = document.getElementById('scoreboard');
+            const nextBtn = document.getElementById('next-btn');
+            
+            // Game slides
+            const isGameSlide = (currentSlide >= 20 && currentSlide <= 29) || (currentSlide >= 31 && currentSlide <= 35);
+            
+            if (isGameSlide) {
+                cm.classList.remove('hidden');
+                sb.classList.remove('hidden');
+            } else {
+                cm.classList.add('hidden');
+                sb.classList.add('hidden');
+            }
+        }
+
+        // --- Slide 2: Mystery Logic ---
+        let mysteryRevealed = 0;
+        function revealBox(element) {
+            if(!element.classList.contains('hidden')) {
+                element.classList.add('hidden');
+                mysteryRevealed++;
+                playSound('correct');
+                if(mysteryRevealed === 6) {
+                    document.getElementById('mystery-reveal-text').classList.remove('hidden');
+                    speak("At the beach!");
+                }
+            }
+        }
+
+        // --- Slide 10 & 41: Vocab Recall Logic ---
+        function revealVocab(element, word) {
+            const textElement = element.querySelector('.vocab-text');
+            if(textElement.classList.contains('hidden')) {
+                textElement.classList.remove('hidden');
+                playSound('correct');
+                speak(word);
+            }
+        }
+
+        // --- Slide 12: Reveal CAN examples ---
+        function revealCanExamples() {
+            const examples = document.querySelectorAll('.can-example');
+            examples.forEach(ex => ex.classList.remove('opacity-0'));
+        }
+
+        // --- Guided Practice Logic (16-18) ---
+        function handlePracticeAnswer(btnElement, isCorrect) {
+            const fb = document.getElementById('practice-feedback');
+            const icon = document.getElementById('pf-icon');
+            const text = document.getElementById('pf-text');
+            const next = document.getElementById('pf-next');
+
+            fb.classList.remove('hidden');
+            if (isCorrect) {
+                playSound('correct');
+                icon.innerText = '✅';
+                text.innerText = 'Great!';
+                text.className = 'text-8xl font-black mt-4 text-green-500';
+                next.classList.remove('hidden'); // Only show next if correct
+            } else {
+                playSound('wrong');
+                icon.innerText = '❌';
+                text.innerText = 'Try again!';
+                text.className = 'text-8xl font-black mt-4 text-red-500';
+                next.classList.add('hidden');
+                // Auto hide feedback after wrong answer
+                setTimeout(() => fb.classList.add('hidden'), 1500);
+            }
+        }
+
+        // --- Detective Game Logic (20-29) ---
+        let timerInterval;
+        function startTimer(slideNum) {
+            clearInterval(timerInterval);
+            let time = 10;
+            const timerEl = document.getElementById('det-timer');
+            if(!timerEl) return;
+            
+            timerInterval = setInterval(() => {
+                time--;
+                timerEl.innerText = time;
+                if(time <= 3) timerEl.classList.add('text-red-500', 'animate-pulse');
+                
+                if (time <= 0) {
+                    clearInterval(timerInterval);
+                    timerEl.innerText = "0";
+                    playSound('wrong');
+                }
+            }, 1000);
+        }
+
+        function handleDetectiveGame(btnElement, isCorrect, slideNum) {
+            clearInterval(timerInterval);
+            
+            // Disable all buttons to prevent multiple clicks
+            const buttons = btnElement.parentElement.querySelectorAll('.det-option');
+            buttons.forEach(b => b.disabled = true);
+
+            const fb = document.getElementById(`det-feedback-${slideNum}`);
+            const icon = document.getElementById(`df-icon-${slideNum}`);
+            const text = document.getElementById(`df-text-${slideNum}`);
+            const next = document.getElementById(`df-next-${slideNum}`);
+
+            fb.classList.remove('hidden');
+            if (isCorrect) {
+                playSound('correct');
+                icon.innerText = '✅';
+                text.innerText = 'CORRECT!';
+                text.className = 'text-8xl font-black mt-4 text-green-400 uppercase tracking-widest';
+                next.classList.remove('hidden');
+            } else {
+                playSound('wrong');
+                icon.innerText = '❌';
+                text.innerText = 'TRY AGAIN!';
+                text.className = 'text-8xl font-black mt-4 text-red-400 uppercase tracking-widest';
+                
+                // Reset after 1.5s so they can try again
+                setTimeout(() => {
+                    fb.classList.add('hidden');
+                    buttons.forEach(b => b.disabled = false);
+                    startTimer(slideNum); // restart timer
+                }, 1500);
+            }
+        }
+
+        // --- True/False Game Logic (31-35) ---
+        function handleTFAnswer(isCorrect, slideNum) {
+            const fb = document.getElementById(`tf-feedback-${slideNum}`);
+            const icon = document.getElementById(`tff-icon-${slideNum}`);
+            const next = document.getElementById(`tff-next-${slideNum}`);
+
+            fb.classList.remove('hidden');
+            if (isCorrect) {
+                playSound('correct');
+                icon.innerText = '🎉 CORRECT!';
+                icon.className = 'text-8xl font-black animate-pop-in text-green-500 text-center';
+                next.classList.remove('hidden');
+            } else {
+                playSound('wrong');
+                icon.innerText = '❌ TRY AGAIN';
+                icon.className = 'text-8xl font-black animate-pop-in text-red-500 text-center';
+                setTimeout(() => fb.classList.add('hidden'), 1500);
+            }
+        }
+
+        // --- Master Render Function ---
+        function render() {
+            // Stop any active timers
+            clearInterval(timerInterval);
+            mysteryRevealed = 0; // reset mystery state
+            
+            const container = document.getElementById('slide-container');
+            container.innerHTML = getSlideHTML(currentSlide);
+            updateNavigation();
+        }
+
+        // Initial setup
+        window.onload = render;
+
+    </script>
+</body>
+</html>

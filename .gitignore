@@ -1,6 +1,11 @@
 # ZCode session artifacts (internal, not part of the project)
 .zcode/
 
+# Raw drop-folder for new tools before installation — the installed
+# (and Gemini-key-patched) versions live in tools/, so keep the raw
+# originals local-only to avoid duplicates in the repo.
+new tool/
+
 # OS clutter
 .DS_Store
 Thumbs.db

@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sentence Scramble</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&family=Nunito:wght@600;800&display=swap');
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #f0f9ff;
+            background-image: radial-gradient(#bae6fd 2px, transparent 2px);
+            background-size: 40px 40px;
+            /* Prevent scrolling on touch devices while playing */
+            touch-action: none;
+        }
+
+        .word-font {
+            font-family: 'Comic Neue', cursive;
+        }
+
+        /* Smooth shadow and scale transition for words */
+        .word-card {
+            transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        
+        .word-card:active {
+            transform: scale(0.95);
+        }
+
+        .word-card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Feedback Animations */
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+            40%, 60% { transform: translate3d(8px, 0, 0); }
+        }
+
+        .pop {
+            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Glassmorphism for panels */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border: 4px solid #fff;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        }
+
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col overflow-hidden text-slate-800">
+
+    <!-- Top Bar -->
+    <header class="flex justify-between items-center p-3 sm:p-4 bg-white/90 shadow-sm z-20">
+        <button onclick="openSettings()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 p-2 sm:p-3 rounded-xl transition font-bold text-sm shadow-sm flex items-center gap-2">
+            <span class="text-xl">⚙️</span> <span class="hidden sm:inline">Settings</span>
+        </button>
+
+        <!-- Center Info (Timer & Questions) -->
+        <div class="flex flex-col items-center">
+            <h1 class="text-xl sm:text-2xl font-extrabold text-sky-600 drop-shadow-sm flex items-center gap-2">
+                <span>⏱️</span> <span id="timer-display">0.0s</span>
+            </h1>
+            <div class="text-xs sm:text-sm font-bold text-slate-500" id="question-counter">Question: 1/15</div>
+        </div>
+        
+        <div class="w-[80px] sm:w-[100px]"></div> <!-- Spacer for centering -->
+    </header>
+
+    <!-- Progress Bar -->
+    <div class="w-full h-3 bg-slate-200">
+        <div id="progress-bar" class="h-full bg-gradient-to-r from-green-400 to-sky-400 w-0 transition-all duration-500 rounded-r-full"></div>
+    </div>
+
+    <!-- Main Game Area -->
+    <main class="flex-1 flex flex-col p-2 sm:p-4 gap-4 relative z-10 w-full max-w-5xl mx-auto">
+        
+        <!-- Sentence Building Area (Dropzone) -->
+        <div class="flex flex-col gap-2">
+            <div class="flex justify-end items-end px-2">
+                <button onclick="clearBuilder()" class="text-sm sm:text-base font-bold text-slate-400 hover:text-rose-500 hover:underline mb-2">Clear ↺</button>
+            </div>
+            <div id="builder-area" class="glass-panel min-h-[100px] w-full rounded-3xl p-4 flex flex-wrap gap-3 items-center justify-center border-dashed border-sky-300 transition-colors">
+                <div class="flex w-full justify-center gap-2 sm:gap-4 mb-2">
+                    <button onclick="adjustScore(event, 'A', 1)" class="bg-rose-100 hover:bg-rose-200 active:scale-95 border-2 border-rose-400 text-rose-700 px-4 py-2 sm:px-8 sm:py-3 rounded-2xl font-black text-xl sm:text-3xl flex items-center gap-2 shadow-md transition cursor-pointer">
+                        Team A: <span id="score-a-display">0</span>
+                    </button>
+                    <button onclick="adjustScore(event, 'B', 1)" class="bg-sky-100 hover:bg-sky-200 active:scale-95 border-2 border-sky-400 text-sky-700 px-4 py-2 sm:px-8 sm:py-3 rounded-2xl font-black text-xl sm:text-3xl flex items-center gap-2 shadow-md transition cursor-pointer">
+                        Team B: <span id="score-b-display">0</span>
+                    </button>
+                </div>
+                <!-- Selected words go here -->
+            </div>
+            
+            <!-- Feedback Message -->
+            <div id="feedback-message" class="text-center font-bold text-2xl h-8 mt-2 transition-all opacity-0"></div>
+        </div>
+
+        <!-- Floating Words Area -->
+        <div id="play-area" class="flex-1 relative bg-white/40 rounded-3xl border-4 border-white overflow-hidden shadow-inner w-full">
+            <!-- Words will be injected here absolutely positioned -->
+            
+            <!-- Play/Pause Overlay -->
+            <div id="pause-overlay" class="absolute inset-0 bg-white/50 backdrop-blur-sm hidden flex-col items-center justify-center z-10">
+                <div class="text-3xl mb-4 font-bold text-sky-600">Game Paused</div>
+                <button onclick="togglePause()" class="bg-sky-500 text-white px-8 py-3 rounded-full font-bold text-xl hover:bg-sky-600 transition shadow-lg pop">Resume</button>
+            </div>
+        </div>
+
+        <!-- Controls (Bottom) -->
+        <div class="flex justify-between items-center px-2 pb-2">
+            <button id="pause-btn" onclick="togglePause()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-6 py-3 rounded-2xl font-bold transition shadow-sm">
+                ⏸ Pause
+            </button>
+            
+            <button id="next-btn" onclick="nextQuestion()" class="bg-gradient-to-b from-sky-400 to-sky-600 hover:from-sky-500 hover:to-sky-700 text-white px-8 py-3 rounded-2xl font-bold text-xl shadow-lg border-b-4 border-sky-800 transition transform hover:-translate-y-1 active:translate-y-0 active:border-b-0 pop">
+                Next ➔
+            </button>
+        </div>
+    </main>
+
+    <!-- Teacher Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden justify-center items-center z-50 p-4">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl pop max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-extrabold text-slate-800 flex items-center gap-2">⚙️ Teacher Settings</h2>
+                <button onclick="closeSettings()" class="text-slate-400 hover:text-rose-500 text-3xl font-bold">&times;</button>
+            </div>
+            
+            <div class="space-y-5">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Sentences (One per line)</label>
+                    <textarea id="settings-sentences" class="w-full h-32 border-2 border-slate-200 rounded-xl p-3 focus:border-sky-500 focus:outline-none font-medium resize-none" placeholder="The dog is big."></textarea>
+                    <p class="text-xs text-slate-500 mt-1">Pupils will see the words exactly as typed.</p>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-2">Difficulty</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="flex flex-col items-center p-2 border-2 border-slate-200 rounded-xl cursor-pointer hover:bg-sky-50 has-[:checked]:border-sky-500 has-[:checked]:bg-sky-100 transition">
+                            <input type="radio" name="difficulty" value="easy" class="mb-1" checked>
+                            <span class="font-bold">Easy</span>
+                            <span class="text-[10px] text-center text-slate-500">Slow, large, no distractors</span>
+                        </label>
+                        <label class="flex flex-col items-center p-2 border-2 border-slate-200 rounded-xl cursor-pointer hover:bg-sky-50 has-[:checked]:border-sky-500 has-[:checked]:bg-sky-100 transition">
+                            <input type="radio" name="difficulty" value="medium" class="mb-1">
+                            <span class="font-bold">Medium</span>
+                            <span class="text-[10px] text-center text-slate-500">Moderate, normal, 1 distractor</span>
+                        </label>
+                        <label class="flex flex-col items-center p-2 border-2 border-slate-200 rounded-xl cursor-pointer hover:bg-sky-50 has-[:checked]:border-sky-500 has-[:checked]:bg-sky-100 transition">
+                            <input type="radio" name="difficulty" value="hard" class="mb-1">
+                            <span class="font-bold">Hard</span>
+                            <span class="text-[10px] text-center text-slate-500">Fast, smaller, 2 distractors</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between border-t border-slate-100 pt-4">
+                    <div>
+                        <div class="font-bold text-slate-700">Extra Distractor Words</div>
+                        <div class="text-xs text-slate-500">Force distractors on any difficulty</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="settings-distractors" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-500"></div>
+                    </label>
+                </div>
+                
+                <div class="flex items-center justify-between border-t border-slate-100 pt-4">
+                    <div>
+                        <div class="font-bold text-slate-700">Movement Speed Modifier</div>
+                        <div class="text-xs text-slate-500">Fine-tune the floating speed</div>
+                    </div>
+                    <input type="range" id="settings-speed" min="0.5" max="2" step="0.1" value="1" class="w-32 accent-sky-500">
+                </div>
+            </div>
+
+            <div class="mt-6 flex gap-3">
+                <button onclick="saveSettings()" class="flex-1 bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 rounded-xl transition">Save & Restart</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- End Game Screen -->
+    <div id="end-screen" class="fixed inset-0 bg-sky-500/90 backdrop-blur-md hidden flex-col justify-center items-center z-40 text-white">
+        <h1 class="text-6xl mb-4">🏆</h1>
+        <h2 class="text-4xl font-extrabold mb-2 text-center" id="winner-text">Great Job!</h2>
+        <p class="text-xl font-bold mb-8 opacity-90">You completed all sentences.</p>
+        
+        <div class="flex gap-6 mb-8">
+            <div class="bg-rose-500/80 p-6 rounded-3xl flex flex-col items-center shadow-lg border border-white/30">
+                <div class="text-sm uppercase tracking-widest font-bold mb-1 opacity-90">Team A</div>
+                <div class="text-6xl font-extrabold text-white drop-shadow-md" id="final-score-a">0</div>
+            </div>
+            <div class="bg-sky-500/80 p-6 rounded-3xl flex flex-col items-center shadow-lg border border-white/30">
+                <div class="text-sm uppercase tracking-widest font-bold mb-1 opacity-90">Team B</div>
+                <div class="text-6xl font-extrabold text-white drop-shadow-md" id="final-score-b">0</div>
+            </div>
+        </div>
+
+        <button onclick="restartGame()" class="bg-white text-sky-600 hover:bg-slate-50 px-10 py-4 rounded-full font-extrabold text-2xl shadow-xl transition transform hover:scale-105">
+            Play Again ↺
+        </button>
+    </div>
+
+    <!-- Confetti Canvas -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <script>
+        // --- GAME STATE ---
+        const defaultSentences = [
+            "I am happy.",
+            "I am sad.",
+            "I am hungry.",
+            "I am tired.",
+            "I like cats.",
+            "I like dogs.",
+            "I like apples.",
+            "I like bananas.",
+            "I see a bird.",
+            "I see a cat.",
+            "I have a bag.",
+            "I have a book.",
+            "I have a pencil.",
+            "This is my bag.",
+            "This is my book.",
+            "This is a cat.",
+            "This is a dog.",
+            "It is big.",
+            "It is small.",
+            "It is red.",
+            "It is blue.",
+            "The cat is big.",
+            "The dog is small.",
+            "The bird is blue.",
+            "The ball is red.",
+            "The sun is hot.",
+            "The bag is heavy.",
+            "The box is small.",
+            "The boy is happy.",
+            "The girl is sad.",
+            "He is tall.",
+            "She is short.",
+            "He has a ball.",
+            "She has a doll.",
+            "We are friends.",
+            "The cat is under the table.",
+            "The dog is on the chair.",
+            "The ball is under the bed.",
+            "The book is on the table.",
+            "The bag is beside the chair.",
+            "The pencil is in the box.",
+            "The boy is in the classroom.",
+            "The girl is in the library.",
+            "The teacher is in the classroom.",
+            "The children are in the playground.",
+            "I can swim.",
+            "I can run fast.",
+            "I can jump high.",
+            "I can ride a bicycle.",
+            "I can play football.",
+            "He can swim well.",
+            "She can sing a song.",
+            "He can draw a picture.",
+            "She can dance well.",
+            "We can play together.",
+            "I have two pencils.",
+            "She has a red bag.",
+            "He has a blue ball.",
+            "I have three books.",
+            "The boy has a green kite.",
+            "The girl has a pink umbrella.",
+            "My bag is very heavy.",
+            "My shoes are black.",
+            "Her dress is beautiful.",
+            "His shirt is blue.",
+            "The elephant is very big.",
+            "The mouse is very small.",
+            "The rabbit has long ears.",
+            "The monkey has a long tail.",
+            "The giraffe has a long neck.",
+            "The boy is playing football.",
+            "The girl is reading a book.",
+            "The cat is sleeping on the sofa.",
+            "The dog is running in the garden.",
+            "The children are playing in the park.",
+            "The teacher is writing on the board.",
+            "The boy is eating an apple.",
+            "The girl is drinking some water.",
+            "The baby is sleeping in the bedroom.",
+            "The birds are flying in the sky.",
+            "I am wearing a blue shirt.",
+            "She is wearing a red dress.",
+            "He is carrying a big bag.",
+            "The boy is holding a yellow ball.",
+            "The girl is holding a pink umbrella.",
+            "There is a cat under the table.",
+            "There is a dog beside the house.",
+            "There is a book on the chair.",
+            "There are three birds in the tree.",
+            "There are two balls under the bed.",
+            "The big dog is behind the door.",
+            "The small cat is under the chair.",
+            "The red ball is beside the box.",
+            "The blue bag is on the table.",
+            "The little boy is riding a bicycle.",
+            "The girl is eating a big red apple.",
+            "The children are playing with a ball.",
+            "The boy is wearing a green T-shirt.",
+            "The girl is sitting beside her friend.",
+            "The happy children are playing outside."
+        ];
+
+        // Shared distractor pool based on simple Year 2 sight words
+        const distractorPool = ["cat", "small", "blue", "slow", "happy", "car", "look", "and", "make", "play", "not"];
+
+        let state = {
+            sentences: [...defaultSentences],
+            currentIndex: 0,
+            teamAScore: 0,
+            teamBScore: 0,
+            difficulty: 'easy', // easy, medium, hard
+            speedModifier: 1.0,
+            forceDistractors: false,
+            
+            // Timer state
+            startTime: 0,
+            timeElapsed: 0,
+            
+            // Current level data
+            targetWords: [], 
+            movingWordsList: [], // Array of objects holding data for moving words
+            selectedWordObjects: [], // Array of objects currently in the builder
+            
+            isPaused: false,
+            isTransitioning: false,
+            animationFrameId: null
+        };
+
+        // DOM Elements
+        const playArea = document.getElementById('play-area');
+        const builderArea = document.getElementById('builder-area');
+        const feedbackMessage = document.getElementById('feedback-message');
+        
+        const scoreADisplay = document.getElementById('score-a-display');
+        const scoreBDisplay = document.getElementById('score-b-display');
+        const timerDisplay = document.getElementById('timer-display');
+        
+        const questionCounter = document.getElementById('question-counter');
+        const progressBar = document.getElementById('progress-bar');
+        const nextBtn = document.getElementById('next-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const pauseOverlay = document.getElementById('pause-overlay');
+        const endScreen = document.getElementById('end-screen');
+        const finalScoreA = document.getElementById('final-score-a');
+        const finalScoreB = document.getElementById('final-score-b');
+        const winnerText = document.getElementById('winner-text');
+        const settingsModal = document.getElementById('settings-modal');
+
+        // Colors for words to make them appealing
+        const wordColors = [
+            'bg-rose-400', 'bg-sky-400', 'bg-amber-400', 'bg-emerald-400', 'bg-violet-400', 'bg-fuchsia-400'
+        ];
+
+        // --- UTILITY FUNCTIONS ---
+        function shuffleArray(array) {
+            let curId = array.length;
+            while (0 !== curId) {
+                let randId = Math.floor(Math.random() * curId);
+                curId -= 1;
+                let tmp = array[curId];
+                array[curId] = array[randId];
+                array[randId] = tmp;
+            }
+            return array;
+        }
+
+        // --- GAME INITIALIZATION ---
+        function initGame() {
+            state.currentIndex = 0;
+            state.teamAScore = 0;
+            state.teamBScore = 0;
+            state.isPaused = false;
+            state.isTransitioning = false;
+            updateUI();
+            endScreen.classList.add('hidden');
+            cancelAnimationFrame(state.animationFrameId);
+            loadQuestion();
+            gameLoop();
+        }
+
+        function updateUI() {
+            scoreADisplay.innerText = state.teamAScore;
+            scoreBDisplay.innerText = state.teamBScore;
+            questionCounter.innerText = `Question: ${state.currentIndex + 1}/${state.sentences.length}`;
+            const progressPct = ((state.currentIndex) / state.sentences.length) * 100;
+            progressBar.style.width = `${progressPct}%`;
+        }
+
+        function adjustScore(event, team, amount) {
+            if (team === 'A') {
+                state.teamAScore = Math.max(0, state.teamAScore + amount);
+            } else {
+                state.teamBScore = Math.max(0, state.teamBScore + amount);
+            }
+            updateUI();
+            
+            // Fire confetti from the button clicked
+            if (event && event.currentTarget) {
+                const rect = event.currentTarget.getBoundingClientRect();
+                const x = rect.left + rect.width / 2;
+                const y = rect.top + rect.height / 2;
+                fireConfetti(x, y);
+            } else {
+                fireConfetti();
+            }
+        }
+
+        function loadQuestion() {
+            // Clean up previous
+            playArea.innerHTML = '';
+            playArea.appendChild(pauseOverlay); // Keep the overlay
+            
+            // Clean up builder area
+            const wordsInBuilder = builderArea.querySelectorAll('.word-card');
+            wordsInBuilder.forEach(w => w.remove());
+            
+            // Reset Next button visuals
+            nextBtn.classList.remove('from-green-400', 'to-green-600', 'border-green-800', 'animate-pulse');
+            nextBtn.classList.add('from-sky-400', 'to-sky-600', 'border-sky-800');
+
+            feedbackMessage.style.opacity = '0';
+            builderArea.classList.remove('border-green-400', 'bg-green-50', 'border-rose-400', 'bg-rose-50');
+            builderArea.classList.add('border-sky-300');
+            
+            state.selectedWordObjects = [];
+            state.movingWordsList = [];
+            state.isTransitioning = false;
+            
+            // Start Timer
+            state.startTime = Date.now();
+            
+            const currentSentence = state.sentences[state.currentIndex].trim();
+            // Split keeping basic punctuation attached
+            const words = currentSentence.split(/\s+/).filter(w => w.length > 0);
+            state.targetWords = [...words];
+
+            // Setup variables based on difficulty
+            let distractorCount = 0;
+            let textSize = 'text-3xl sm:text-4xl';
+            let pX = 'px-6', pY = 'py-3';
+            
+            if (state.difficulty === 'medium') {
+                distractorCount = 1;
+                textSize = 'text-2xl sm:text-3xl';
+            } else if (state.difficulty === 'hard') {
+                distractorCount = 2;
+                textSize = 'text-xl sm:text-2xl';
+                pX = 'px-4'; pY = 'py-2';
+            }
+            
+            if (state.forceDistractors && distractorCount === 0) distractorCount = 1;
+
+            let wordsToSpawn = [...words];
+
+            // Add Distractors
+            let availableDistractors = shuffleArray([...distractorPool]);
+            for(let i=0; i<distractorCount; i++) {
+                if (availableDistractors[i]) {
+                    wordsToSpawn.push(availableDistractors[i]);
+                }
+            }
+
+            wordsToSpawn = shuffleArray(wordsToSpawn);
+
+            // Wait a tick for DOM to be ready to measure playArea
+            setTimeout(() => {
+                const areaRect = playArea.getBoundingClientRect();
+                
+                wordsToSpawn.forEach((wordText, index) => {
+                    // Create element
+                    const el = document.createElement('div');
+                    el.innerText = wordText;
+                    // Styling
+                    const color = wordColors[index % wordColors.length];
+                    el.className = `word-card word-font absolute text-white font-black rounded-2xl border-b-4 border-black/20 shadow-lg flex items-center justify-center pop ${color} ${textSize} ${pX} ${pY}`;
+                    
+                    // Add to DOM invisibly first to measure size
+                    el.style.visibility = 'hidden';
+                    playArea.appendChild(el);
+                    
+                    const wWidth = el.offsetWidth;
+                    const wHeight = el.offsetHeight;
+                    
+                    // Safe boundaries
+                    const maxX = Math.max(0, areaRect.width - wWidth);
+                    const maxY = Math.max(0, areaRect.height - wHeight);
+                    
+                    // Random start position
+                    const startX = Math.random() * maxX;
+                    const startY = Math.random() * maxY;
+                    
+                    // Random velocity. Avoid perfectly horizontal/vertical
+                    let angle = Math.random() * Math.PI * 2;
+                    // Ensure angle isn't too close to multiples of PI/2
+                    while(Math.abs(Math.sin(angle)) < 0.2 || Math.abs(Math.cos(angle)) < 0.2) {
+                         angle = Math.random() * Math.PI * 2;
+                    }
+
+                    // Base speed based on difficulty - Increased for faster movement
+                    let baseSpeed = 6.0;
+                    if (state.difficulty === 'medium') baseSpeed = 9.0;
+                    if (state.difficulty === 'hard') baseSpeed = 12.0;
+                    
+                    const speed = baseSpeed * state.speedModifier;
+                    const vx = Math.cos(angle) * speed;
+                    const vy = Math.sin(angle) * speed;
+
+                    // Word Object
+                    const wordObj = {
+                        id: `word-${index}`,
+                        text: wordText,
+                        element: el,
+                        x: startX,
+                        y: startY,
+                        vx: vx,
+                        vy: vy,
+                        width: wWidth,
+                        height: wHeight,
+                        isSelected: false
+                    };
+
+                    // Initial position
+                    el.style.left = `${wordObj.x}px`;
+                    el.style.top = `${wordObj.y}px`;
+                    el.style.visibility = 'visible';
+
+                    // Interaction
+                    el.addEventListener('click', () => handleWordClick(wordObj));
+                    el.addEventListener('touchstart', (e) => {
+                        e.preventDefault(); // Prevent double firing with click
+                        handleWordClick(wordObj);
+                    }, {passive: false});
+
+                    state.movingWordsList.push(wordObj);
+                });
+            }, 50);
+        }
+
+        function gameLoop() {
+            if (!state.isPaused) {
+                // Update Timer
+                if (!state.isTransitioning) {
+                    state.timeElapsed = (Date.now() - state.startTime) / 1000;
+                    timerDisplay.innerText = state.timeElapsed.toFixed(1) + 's';
+                }
+
+                const areaRect = playArea.getBoundingClientRect();
+                
+                state.movingWordsList.forEach(word => {
+                    if (word.isSelected) return; // Don't move selected words
+                    
+                    // Update bounds dynamically in case of resize
+                    const maxX = Math.max(0, areaRect.width - word.width);
+                    const maxY = Math.max(0, areaRect.height - word.height);
+
+                    // Move
+                    word.x += word.vx;
+                    word.y += word.vy;
+
+                    // Bounce X
+                    if (word.x <= 0) {
+                        word.x = 0;
+                        word.vx *= -1;
+                    } else if (word.x >= maxX) {
+                        word.x = maxX;
+                        word.vx *= -1;
+                    }
+
+                    // Bounce Y
+                    if (word.y <= 0) {
+                        word.y = 0;
+                        word.vy *= -1;
+                    } else if (word.y >= maxY) {
+                        word.y = maxY;
+                        word.vy *= -1;
+                    }
+
+                    // Apply
+                    word.element.style.left = `${word.x}px`;
+                    word.element.style.top = `${word.y}px`;
+                });
+            }
+            
+            state.animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function handleWordClick(wordObj) {
+            if (state.isTransitioning) return; // Block clicks during success/fail animations
+
+            if (wordObj.isSelected) {
+                // Return to play area
+                deselectWord(wordObj);
+            } else {
+                // Move to builder
+                selectWord(wordObj);
+            }
+        }
+
+        function selectWord(wordObj) {
+            wordObj.isSelected = true;
+            
+            // Visually move to builder area
+            // Remove absolute positioning rules
+            wordObj.element.style.position = 'relative';
+            wordObj.element.style.left = 'auto';
+            wordObj.element.style.top = 'auto';
+            
+            // Add a small pop effect
+            wordObj.element.classList.remove('pop');
+            void wordObj.element.offsetWidth; // trigger reflow
+            wordObj.element.classList.add('pop');
+
+            builderArea.appendChild(wordObj.element);
+            state.selectedWordObjects.push(wordObj);
+
+            // Check if sentence is full
+            if (state.selectedWordObjects.length === state.targetWords.length) {
+                checkAnswer();
+            }
+        }
+
+        function deselectWord(wordObj) {
+            wordObj.isSelected = false;
+            
+            // Remove from selected list
+            state.selectedWordObjects = state.selectedWordObjects.filter(w => w.id !== wordObj.id);
+
+            // Restore absolute styling
+            wordObj.element.style.position = 'absolute';
+            
+            // Put it somewhere near the center, or randomly, with fresh bounds
+            const areaRect = playArea.getBoundingClientRect();
+            const maxX = Math.max(0, areaRect.width - wordObj.width);
+            const maxY = Math.max(0, areaRect.height - wordObj.height);
+            
+            wordObj.x = Math.random() * (maxX * 0.6) + (maxX * 0.2); // central 60%
+            wordObj.y = Math.random() * (maxY * 0.6) + (maxY * 0.2);
+            
+            // Randomize direction slightly
+            wordObj.vx *= (Math.random() > 0.5 ? 1 : -1);
+            wordObj.vy *= (Math.random() > 0.5 ? 1 : -1);
+
+            wordObj.element.style.left = `${wordObj.x}px`;
+            wordObj.element.style.top = `${wordObj.y}px`;
+            
+            playArea.appendChild(wordObj.element);
+        }
+
+        function clearBuilder() {
+            if (state.isTransitioning) return;
+            // Iterate backward to not mess up array indices if modifying
+            const currentlySelected = [...state.selectedWordObjects];
+            currentlySelected.forEach(wordObj => deselectWord(wordObj));
+            
+            // Reset feedback
+            builderArea.classList.remove('border-rose-400', 'bg-rose-50');
+            builderArea.classList.add('border-sky-300');
+            feedbackMessage.style.opacity = '0';
+        }
+
+        function checkAnswer() {
+            state.isTransitioning = true; // Lock interactions
+            
+            let isCorrect = true;
+            for(let i=0; i<state.targetWords.length; i++) {
+                if(state.selectedWordObjects[i].text !== state.targetWords[i]) {
+                    isCorrect = false;
+                    break;
+                }
+            }
+
+            if (isCorrect) {
+                // SUCCESS
+                builderArea.classList.remove('border-sky-300', 'border-rose-400', 'bg-rose-50');
+                builderArea.classList.add('border-green-400', 'bg-green-50');
+                
+                feedbackMessage.innerHTML = 'Correct! 🎉';
+                feedbackMessage.className = 'text-center font-bold text-2xl h-8 mt-2 transition-all opacity-100 text-green-600 pop';
+                
+                // Highlight Next Button
+                nextBtn.classList.remove('from-sky-400', 'to-sky-600', 'border-sky-800');
+                nextBtn.classList.add('from-green-400', 'to-green-600', 'border-green-800', 'animate-pulse');
+
+                fireConfetti();
+                
+            } else {
+                // FAIL
+                builderArea.classList.remove('border-sky-300');
+                builderArea.classList.add('border-rose-400', 'bg-rose-50', 'shake');
+                
+                feedbackMessage.innerHTML = 'Try again!';
+                feedbackMessage.className = 'text-center font-bold text-2xl h-8 mt-2 transition-all opacity-100 text-rose-500';
+
+                // Allow retry after a short delay
+                setTimeout(() => {
+                    builderArea.classList.remove('shake');
+                    state.isTransitioning = false;
+                }, 800);
+            }
+        }
+
+        function nextQuestion() {
+            state.currentIndex++;
+            if (state.currentIndex >= state.sentences.length) {
+                // Game Over
+                const progressPct = 100;
+                progressBar.style.width = `${progressPct}%`;
+                
+                finalScoreA.innerText = state.teamAScore;
+                finalScoreB.innerText = state.teamBScore;
+                
+                if (state.teamAScore > state.teamBScore) {
+                    winnerText.innerText = "🏆 Team A Wins!";
+                } else if (state.teamBScore > state.teamAScore) {
+                    winnerText.innerText = "🏆 Team B Wins!";
+                } else {
+                    winnerText.innerText = "🤝 It's a Tie!";
+                }
+
+                endScreen.classList.remove('hidden');
+                endScreen.classList.add('flex');
+            } else {
+                updateUI();
+                state.isPaused = false;
+                loadQuestion();
+            }
+        }
+
+        function togglePause() {
+            // Cannot pause while transitioning/finished or in award modal
+            if(state.isTransitioning) return; 
+
+            state.isPaused = !state.isPaused;
+            if (state.isPaused) {
+                pauseOverlay.classList.remove('hidden');
+                pauseOverlay.classList.add('flex');
+                pauseBtn.innerHTML = '▶ Resume';
+            } else {
+                pauseOverlay.classList.add('hidden');
+                pauseOverlay.classList.remove('flex');
+                pauseBtn.innerHTML = '⏸ Pause';
+            }
+        }
+
+        function restartGame() {
+            initGame();
+        }
+
+        // Teacher Settings logic
+        function openSettings() {
+            const wasPaused = state.isPaused;
+            state.isPaused = true; // Pause in background
+            
+            document.getElementById('settings-sentences').value = state.sentences.join('\n');
+            document.getElementById('settings-distractors').checked = state.forceDistractors;
+            document.getElementById('settings-speed').value = state.speedModifier;
+            
+            // Set radio
+            const radios = document.getElementsByName('difficulty');
+            for(let i=0; i<radios.length; i++){
+                if(radios[i].value === state.difficulty) {
+                    radios[i].checked = true;
+                }
+            }
+            
+            settingsModal.classList.remove('hidden');
+            settingsModal.classList.add('flex');
+            
+            // Attach old state just in case they cancel
+            settingsModal.dataset.wasPaused = wasPaused;
+        }
+
+        function closeSettings() {
+            settingsModal.classList.add('hidden');
+            settingsModal.classList.remove('flex');
+            
+            if (settingsModal.dataset.wasPaused === 'false' && !state.isTransitioning) {
+                state.isPaused = false;
+            }
+        }
+
+        function saveSettings() {
+            const textLines = document.getElementById('settings-sentences').value.split('\n');
+            const validLines = textLines.map(l => l.trim()).filter(l => l.length > 0);
+            
+            if (validLines.length === 0) {
+                // Fallback if they delete everything
+                state.sentences = [...defaultSentences];
+            } else {
+                state.sentences = validLines;
+            }
+
+            const radios = document.getElementsByName('difficulty');
+            for(let i=0; i<radios.length; i++){
+                if(radios[i].checked) {
+                    state.difficulty = radios[i].value;
+                }
+            }
+
+            state.forceDistractors = document.getElementById('settings-distractors').checked;
+            state.speedModifier = parseFloat(document.getElementById('settings-speed').value);
+
+            closeSettings();
+            initGame(); // Restart game with new settings
+        }
+
+        // Handle window resize dynamically to keep words in bounds
+        window.addEventListener('resize', () => {
+            if (state.movingWordsList.length > 0) {
+                const areaRect = playArea.getBoundingClientRect();
+                state.movingWordsList.forEach(word => {
+                    if(!word.isSelected) {
+                        const maxX = Math.max(0, areaRect.width - word.width);
+                        const maxY = Math.max(0, areaRect.height - word.height);
+                        if (word.x > maxX) word.x = maxX;
+                        if (word.y > maxY) word.y = maxY;
+                    }
+                });
+            }
+        });
+
+        // Lightweight confetti implementation directly in JS
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        let confettis = [];
+        let confettiActive = false;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function fireConfetti(startX, startY) {
+            const colors = ['#fce18a', '#ff726d', '#b48def', '#f4306d', '#4ade80', '#38bdf8'];
+            // We removed confettis = [] here so multiple rapid clicks stack their bursts!
+            
+            const burstX = startX !== undefined ? startX : canvas.width / 2;
+            const burstY = startY !== undefined ? startY : canvas.height / 2 + 100;
+
+            for (let i = 0; i < 100; i++) {
+                confettis.push({
+                    x: burstX,
+                    y: burstY, 
+                    vx: (Math.random() - 0.5) * 20,
+                    vy: (Math.random() - 1) * 20 - 5,
+                    size: Math.random() * 10 + 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rot: Math.random() * 360,
+                    rotSpeed: (Math.random() - 0.5) * 10
+                });
+            }
+            if (!confettiActive) {
+                confettiActive = true;
+                renderConfetti();
+            }
+        }
+
+        function renderConfetti() {
+            if (confettis.length === 0) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                confettiActive = false;
+                return;
+            }
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let stillAlive = false;
+
+            for (let i = 0; i < confettis.length; i++) {
+                let p = confettis[i];
+                p.vy += 0.5; // gravity
+                p.x += p.vx;
+                p.y += p.vy;
+                p.rot += p.rotSpeed;
+
+                if (p.y < canvas.height) {
+                    stillAlive = true;
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.rot * Math.PI / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    ctx.restore();
+                }
+            }
+
+            if (stillAlive) {
+                requestAnimationFrame(renderConfetti);
+            } else {
+                confettis = [];
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                confettiActive = false;
+            }
+        }
+
+        // Start game on load
+        window.onload = initGame;
+    </script>
+</body>
+</html>
